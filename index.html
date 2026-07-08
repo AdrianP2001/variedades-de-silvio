@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variedades de Silvio - Sistema de Control de Inventario y Finanzas</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Estilos de la aplicación -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Chart.js para gráficos avanzados -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons para iconografía moderna -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- jsPDF + AutoTable para exportar PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+    <!-- SheetJS para exportar Excel (.xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="dark-theme">
+
+    <!-- PANTALLA DE LOGIN -->
+    <div id="login-screen">
+        <div class="login-card">
+            <div class="login-logo">
+                <div class="login-logo-icon">
+                    <i data-lucide="sparkles"></i>
+                </div>
+                <h1>Variedades de Silvio</h1>
+                <p>Control de Inventario y Finanzas</p>
+            </div>
+
+            <div class="login-error" id="login-error">
+                <i data-lucide="alert-circle"></i>
+                <span>Usuario o contraseña incorrectos. Intentá de nuevo.</span>
+            </div>
+
+            <div class="login-form-group">
+                <label for="login-username">Usuario</label>
+                <div class="login-input-wrapper">
+                    <i data-lucide="user" class="input-icon"></i>
+                    <input type="text" id="login-username" placeholder="Ingresá tu usuario" autocomplete="username">
+                </div>
+            </div>
+
+            <div class="login-form-group">
+                <label for="login-password">Contraseña</label>
+                <div class="login-input-wrapper">
+                    <i data-lucide="lock" class="input-icon"></i>
+                    <input type="password" id="login-password" placeholder="Ingresá tu contraseña" autocomplete="current-password">
+                    <button class="btn-toggle-pass" id="btn-toggle-pass" type="button" title="Mostrar/Ocultar contraseña">
+                        <i data-lucide="eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button class="btn-login" id="btn-login">
+                <i data-lucide="log-in"></i>
+                Ingresar al Sistema
+            </button>
+
+            <div class="login-footer-text">
+                <i data-lucide="shield-check"></i>
+                Acceso protegido con contraseña
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Barra de navegación lateral (Sidebar) -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <i data-lucide="sparkles"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h2>Variedades de Silvio</h2>
+                        <span>Control de Negocio</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul>
+                    <li>
+                        <button class="nav-btn active" data-view="dashboard" id="btn-nav-dashboard">
+                            <i data-lucide="layout-dashboard"></i>
+                            <span>Resumen</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-btn" data-view="inventory" id="btn-nav-inventory">
+                            <i data-lucide="package"></i>
+                            <span>Inventario</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-btn" data-view="transactions" id="btn-nav-transactions">
+                            <i data-lucide="arrow-left-right"></i>
+                            <span>Caja (Movimientos)</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-btn" data-view="reports" id="btn-nav-reports">
+                            <i data-lucide="trending-up"></i>
+                            <span>Reportes</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-btn" data-view="backup" id="btn-nav-backup">
+                            <i data-lucide="database"></i>
+                            <span>Datos y Respaldo</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-btn" data-view="loans" id="btn-nav-loans">
+                            <i data-lucide="hand-coins"></i>
+                            <span>Préstamos</span>
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="theme-toggle-container">
+                    <span>Modo Oscuro</span>
+                    <label class="switch">
+                        <input type="checkbox" id="theme-toggle" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i data-lucide="store"></i>
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">Variedades de Silvio</span>
+                        <span class="user-role">Administrador</span>
+                    </div>
+                </div>
+                <button class="btn-logout" id="btn-logout">
+                    <i data-lucide="log-out"></i>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <!-- Contenido principal -->
+        <main class="main-content">
+            <!-- Barra superior -->
+            <header class="main-header">
+                <div class="header-title">
+                    <h1 id="view-title">Resumen Financiero</h1>
+                    <p id="view-subtitle" class="text-muted">Estado actual de tu negocio el día de hoy.</p>
+                </div>
+                <div class="header-actions">
+                    <span class="current-date" id="header-date">5 de Julio, 2026</span>
+                    <button class="btn btn-primary btn-icon-text" id="btn-quick-sale">
+                        <i data-lucide="shopping-cart"></i>
+                        <span>Registrar Venta</span>
+                    </button>
+                    <button class="btn btn-secondary btn-icon-text" id="btn-quick-expense">
+                        <i data-lucide="minus-circle"></i>
+                        <span>Registrar Gasto</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- CONTENEDOR DE VISTAS DINÁMICAS -->
+            <div class="views-wrapper">
+                
+                <!-- VISTA 1: DASHBOARD -->
+                <section id="view-dashboard" class="app-view active">
+                    
+                    <!-- Banner de Cierre de Día (Backup Rápido) -->
+                    <div class="dashboard-banner" style="display: flex; justify-content: space-between; align-items: center; background: var(--primary-gradient); padding: 16px 24px; border-radius: var(--radius-md); margin-bottom: 24px; color: white; box-shadow: 0 4px 12px hsla(185, 84%, 42%, 0.2);">
+                        <div>
+                            <h3 style="margin-bottom: 4px; color: white; display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="shield-alert" style="width: 20px; height: 20px;"></i>
+                                Respaldo de Emergencia
+                            </h3>
+                            <p style="font-size: 0.85rem; opacity: 0.9;">Guarda una copia en un Pendrive para proteger tu negocio ante fallas de la PC.</p>
+                        </div>
+                        <button class="btn" id="btn-daily-close" style="background: white; color: #0f172a; font-weight: 600; border: none; padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow-sm); transition: transform 0.2s;">
+                            <i data-lucide="download-cloud" style="color: var(--primary);"></i> Generar Respaldo Completo
+                        </button>
+                    </div>
+
+                    <!-- Tarjetas de métricas clave (KPIs) -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card card-balance">
+                            <div class="kpi-icon">
+                                <i data-lucide="wallet"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Saldo Actual (Caja)</span>
+                                <h3 class="kpi-value text-warning" id="kpi-balance">$0.00</h3>
+                                <span class="kpi-trend text-warning" id="kpi-balance-trend">
+                                    <i data-lucide="activity"></i> Saldo en efectivo y cuentas
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card card-income">
+                            <div class="kpi-icon">
+                                <i data-lucide="arrow-up-circle"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Total Ingresos</span>
+                                <h3 class="kpi-value text-success" id="kpi-income">$0.00</h3>
+                                <span class="kpi-trend text-success" id="kpi-income-sub">
+                                    <i data-lucide="trending-up"></i> Entradas registradas
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card card-expense">
+                            <div class="kpi-icon">
+                                <i data-lucide="arrow-down-circle"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Total Egresos</span>
+                                <h3 class="kpi-value text-danger" id="kpi-expense">$0.00</h3>
+                                <span class="kpi-trend text-danger" id="kpi-expense-sub">
+                                    <i data-lucide="trending-down"></i> Salidas de dinero
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card card-inventory">
+                            <div class="kpi-icon">
+                                <i data-lucide="tags"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Valor de Inventario</span>
+                                <h3 class="kpi-value text-info" id="kpi-inventory">$0.00</h3>
+                                <span class="kpi-trend text-info" id="kpi-inventory-sub">
+                                    <i data-lucide="package-search"></i> 0 artículos en stock
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Gráfico y Alertas -->
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card main-chart-card">
+                            <div class="card-header">
+                                <h3>Flujo Financiero Mensual</h3>
+                                <div class="card-actions">
+                                    <span class="badge badge-success">Ingresos</span>
+                                    <span class="badge badge-warning">Gastos</span>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chart-dashboard"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-card alerts-card">
+                            <div class="card-header">
+                                <h3>Alertas de Stock Bajo</h3>
+                                <span class="badge badge-warning" id="alert-count">0 Alertas</span>
+                            </div>
+                            <div class="alerts-list-container">
+                                <ul class="alerts-list" id="dashboard-alerts-list">
+                                    <!-- Se rellenará con JS -->
+                                    <li class="alert-empty-state">
+                                        <i data-lucide="check-circle-2"></i>
+                                        <p>Todo el inventario tiene buen nivel de stock.</p>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Actividad Reciente -->
+                    <div class="dashboard-card recent-activity-card">
+                        <div class="card-header">
+                            <h3>Últimos Movimientos de Caja</h3>
+                            <button class="btn-text" id="btn-see-all-transactions">Ver todos</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Tipo</th>
+                                        <th>Descripción</th>
+                                        <th>Categoría</th>
+                                        <th class="text-right">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-transactions-tbody">
+                                    <!-- Se rellenará con JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 2: INVENTARIO -->
+                <section id="view-inventory" class="app-view">
+                    <div class="inventory-controls-container">
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="inventory-search" placeholder="Buscar por nombre o código de producto...">
+                        </div>
+                        <div class="filters-box">
+                            <select id="inventory-filter-category" class="form-select">
+                                <option value="all">Todas las Categorías</option>
+                                <option value="Ropa Masculina">Ropa Masculina</option>
+                                <option value="Ropa Femenina">Ropa Femenina</option>
+                                <option value="Ropa Infantil">Ropa Infantil</option>
+                                <option value="Calzado">Calzado</option>
+                                <option value="Accesorios">Accesorios</option>
+                                <option value="Varios">Varios</option>
+                            </select>
+                            <select id="inventory-filter-stock" class="form-select">
+                                <option value="all">Todo el Stock</option>
+                                <option value="low">Stock Bajo (Alerta)</option>
+                                <option value="empty">Sin Stock</option>
+                                <option value="ok">Stock Saludable</option>
+                            </select>
+                            <button class="btn btn-primary btn-icon-text" id="btn-add-product">
+                                <i data-lucide="plus"></i>
+                                <span>Nuevo Producto</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <div class="table-container">
+                            <table class="data-table" id="inventory-table">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Categoría</th>
+                                        <th class="text-right">P. Costo</th>
+                                        <th class="text-right">P. Venta</th>
+                                        <th class="text-right">Margen %</th>
+                                        <th class="text-center">Stock</th>
+                                        <th class="text-center">Min. Stock</th>
+                                        <th class="text-center">Estado</th>
+                                        <th class="text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-tbody">
+                                    <!-- Se rellenará con JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 3: TRANSACCIONES -->
+                <section id="view-transactions" class="app-view">
+                    <div class="inventory-controls-container">
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="transaction-search" placeholder="Buscar por descripción...">
+                        </div>
+                        <div class="filters-box">
+                            <select id="transaction-filter-type" class="form-select">
+                                <option value="all">Todos los Movimientos</option>
+                                <option value="ingreso">Ingresos (+)</option>
+                                <option value="egreso">Gastos / Egresos (-)</option>
+                            </select>
+                            <select id="transaction-filter-month" class="form-select">
+                                <option value="all">Todos los Meses</option>
+                                <!-- Se llenará dinámicamente -->
+                            </select>
+                            <button class="btn btn-secondary btn-icon-text" id="btn-export-csv">
+                                <i data-lucide="download"></i>
+                                <span>Exportar Excel (CSV)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <div class="table-container">
+                            <table class="data-table" id="transactions-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Mes</th>
+                                        <th>Tipo</th>
+                                        <th>Descripción</th>
+                                        <th>Categoría</th>
+                                        <th class="text-right">Monto</th>
+                                        <th class="text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactions-tbody">
+                                    <!-- Se rellenará con JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 4: REPORTES -->
+                <section id="view-reports" class="app-view">
+                    <!-- Selector de Período -->
+                    <div class="reports-selector-card">
+                        <div class="period-selectors">
+                            <button class="btn btn-pill" data-period="diario">Hoy</button>
+                            <button class="btn btn-pill" data-period="semanal">Semanal (Últimos 7 Días)</button>
+                            <button class="btn btn-pill" data-period="mensual">Mensual (Mes Actual)</button>
+                            <button class="btn btn-pill active" data-period="anual">Anual</button>
+                        </div>
+                        <div class="report-summary-text" id="report-period-info">
+                            Visualizando balance consolidado del año 2026.
+                        </div>
+                    </div>
+
+                    <!-- Métricas de Reportes -->
+                    <div class="reports-grid-top">
+                        <div class="report-metric-card">
+                            <span class="label">Margen de Ganancia Promedio</span>
+                            <h2 id="report-margin-pct">0.0%</h2>
+                            <p class="subtext">Sobre precio de venta de productos</p>
+                        </div>
+                        <div class="report-metric-card">
+                            <span class="label">Ganancia Neta (Ingresos - Gastos)</span>
+                            <h2 id="report-net-profit" class="text-success">$0.00</h2>
+                            <p class="subtext">Beneficio real en caja en el periodo</p>
+                        </div>
+                        <div class="report-metric-card">
+                            <span class="label">Producto Más Vendido</span>
+                            <h2 id="report-top-product">-</h2>
+                            <p class="subtext" id="report-top-product-qty">0 unidades vendidas</p>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos de Reportes -->
+                    <div class="reports-charts-container">
+                        <div class="dashboard-card chart-half">
+                            <div class="card-header">
+                                <h3>Ingresos vs Egresos Historico</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chart-reports-flow"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-card chart-half">
+                            <div class="card-header">
+                                <h3>Distribución de Gastos (Egresos)</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chart-reports-expenses-pie"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reports-charts-container mt-4">
+                        <div class="dashboard-card chart-half">
+                            <div class="card-header">
+                                <h3>Rendimiento por Categoría de Productos</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chart-reports-products-bar"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-card chart-half">
+                            <div class="card-header">
+                                <h3>Rentabilidad Mensual</h3>
+                            </div>
+                            <div class="table-container compact-table">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Mes</th>
+                                            <th class="text-right">Ingresos</th>
+                                            <th class="text-right">Gastos</th>
+                                            <th class="text-right">Resultado</th>
+                                            <th class="text-center">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="monthly-summary-tbody">
+                                        <!-- JS dynamic table -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 5: BACKUP Y AJUSTES -->
+                <section id="view-backup" class="app-view">
+                    <div class="backup-grid">
+
+                        <!-- NUEVA TARJETA: EXPORTAR PDF / EXCEL -->
+                        <div class="dashboard-card" style="grid-column: 1 / -1;">
+                            <div class="card-header">
+                                <h3>Exportar Reportes</h3>
+                                <div class="card-actions">
+                                    <span class="badge badge-info">PDF &amp; Excel</span>
+                                </div>
+                            </div>
+                            <div class="card-body padding-lg">
+                                <p class="text-muted mb-4">Descargá el inventario completo o el historial de movimientos en formato PDF listo para imprimir o en Excel para editar.</p>
+                                <div class="backup-buttons" style="flex-wrap:wrap; gap: 12px;">
+                                    <button class="btn btn-primary btn-icon-text" id="btn-export-pdf-report">
+                                        <i data-lucide="file-text"></i>
+                                        <span>PDF — Reporte de Movimientos</span>
+                                    </button>
+                                    <button class="btn btn-secondary btn-icon-text" id="btn-export-pdf-inventory">
+                                        <i data-lucide="file-text"></i>
+                                        <span>PDF — Inventario Completo</span>
+                                    </button>
+                                    <button class="btn btn-primary btn-icon-text" id="btn-export-excel">
+                                        <i data-lucide="table-2"></i>
+                                        <span>Excel — Inventario &amp; Movimientos</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3>Copia de Seguridad e Importación</h3>
+                            </div>
+                            <div class="card-body padding-lg">
+                                <p class="text-muted mb-4">Exporta toda tu base de datos (inventario, ingresos, gastos) a un archivo local de respaldo para que nunca la pierdas. Puedes importar el archivo posteriormente para restaurar tus datos.</p>
+                                
+                                <div class="backup-buttons">
+                                    <button class="btn btn-primary btn-icon-text" id="btn-export-backup">
+                                        <i data-lucide="download-cloud"></i>
+                                        <span>Exportar Respaldo (.JSON)</span>
+                                    </button>
+                                    
+                                    <div class="file-input-wrapper">
+                                        <button class="btn btn-secondary btn-icon-text btn-file-dummy">
+                                            <i data-lucide="upload-cloud"></i>
+                                            <span>Importar Respaldo (.JSON)</span>
+                                        </button>
+                                        <input type="file" id="input-import-backup" accept=".json">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3>Restablecimiento del Sistema</h3>
+                            </div>
+                            <div class="card-body padding-lg">
+                                <p class="text-muted mb-4">Si estás comenzando o quieres probar la aplicación, puedes cargar los datos iniciales de prueba (basados en tu plantilla original). También puedes restablecer por completo la base de datos.</p>
+                                
+                                <div class="backup-buttons">
+                                    <button class="btn btn-secondary btn-icon-text text-info" id="btn-load-demo">
+                                        <i data-lucide="refresh-cw"></i>
+                                        <span>Cargar Datos de Demostración</span>
+                                    </button>
+                                    
+                                    <button class="btn btn-secondary btn-icon-text text-danger" id="btn-clear-database">
+                                        <i data-lucide="trash-2"></i>
+                                        <span>Borrar Todos los Datos</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 6: PRÉSTAMOS Y COBROS -->
+                <section id="view-loans" class="app-view">
+                    <div class="inventory-controls-container">
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="loan-search" placeholder="Buscar cliente por nombre...">
+                        </div>
+                        <div class="filters-box">
+                            <select id="loan-filter-status" class="form-select">
+                                <option value="all">Todos los Préstamos</option>
+                                <option value="active">Activos / Pendientes</option>
+                                <option value="paid">Pagados</option>
+                            </select>
+                            <button class="btn btn-primary btn-icon-text" id="btn-new-loan">
+                                <i data-lucide="plus-circle"></i>
+                                <span>Registrar Préstamo</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3>Cobros Diarios</h3>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table" id="loans-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha Inicio</th>
+                                        <th>Cliente</th>
+                                        <th class="text-right">Monto Prestado</th>
+                                        <th class="text-right">Total a Cobrar</th>
+                                        <th class="text-right">Saldo Pendiente</th>
+                                        <th class="text-center">Cuota</th>
+                                        <th class="text-center">Estado</th>
+                                        <th class="text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="loans-tbody">
+                                    <!-- JS dynamic table -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL: REGISTRAR VENTA (RÁPIDO / INGRESOS) -->
+    <div class="modal" id="modal-sale">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i data-lucide="shopping-cart"></i> Registrar Nueva Venta</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <form id="form-sale">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="sale-date">Fecha de la Venta</label>
+                        <input type="date" id="sale-date" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sale-product">Producto Vendido (Descuenta Stock)</label>
+                        <select id="sale-product" class="form-control">
+                            <option value="">-- Seleccionar producto del inventario --</option>
+                            <!-- Llenado dinámico -->
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="group-sale-qty" style="display: none;">
+                        <label for="sale-qty">Cantidad</label>
+                        <div class="qty-selector-container">
+                            <input type="number" id="sale-qty" class="form-control" min="1" value="1">
+                            <span class="stock-info-text text-muted" id="sale-stock-info"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="sale-description">Descripción / Concepto</label>
+                            <input type="text" id="sale-description" class="form-control" placeholder="Ej: VENTA DE MERCANCIA" required>
+                        </div>
+                        <div class="form-group col-auto" style="min-width: 150px;">
+                            <label for="sale-value">Valor ($)</label>
+                            <input type="number" id="sale-value" class="form-control" placeholder="0.00" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sale-category">Categoría de Ingreso</label>
+                        <select id="sale-category" class="form-control" required>
+                            <option value="Venta de Mercancía">Venta de Mercancía</option>
+                            <option value="Servicios">Servicios</option>
+                            <option value="Otros Ingresos">Otros Ingresos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Venta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR GASTO (RÁPIDO / EGRESOS) -->
+    <div class="modal" id="modal-expense">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i data-lucide="minus-circle"></i> Registrar Nuevo Gasto</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <form id="form-expense">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="expense-date">Fecha del Gasto</label>
+                        <input type="date" id="expense-date" class="form-control" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="expense-description">Descripción del Gasto</label>
+                            <input type="text" id="expense-description" class="form-control" placeholder="Ej: PAGO DE INTERNET" required>
+                        </div>
+                        <div class="form-group col-auto" style="min-width: 150px;">
+                            <label for="expense-value">Valor ($)</label>
+                            <input type="number" id="expense-value" class="form-control" placeholder="0.00" min="0.01" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="expense-category">Categoría del Gasto</label>
+                        <select id="expense-category" class="form-control" required>
+                            <option value="Compra de Mercancía">Compra de Mercancía (Inventario)</option>
+                            <option value="Pago Insumos">Pago Insumos</option>
+                            <option value="Pago Materiales">Pago Materiales</option>
+                            <option value="Pago Papelería">Pago Papelería</option>
+                            <option value="Pago Almuerzo">Pago Almuerzo</option>
+                            <option value="Pago Arriendo">Pago Arriendo</option>
+                            <option value="Pago de Internet">Pago de Internet</option>
+                            <option value="Servicios Públicos">Servicios Públicos</option>
+                            <option value="Otros Gastos">Otros Gastos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Guardar Gasto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: AGREGAR / EDITAR PRODUCTO -->
+    <div class="modal" id="modal-product">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="product-modal-title"><i data-lucide="package-plus"></i> Añadir Nuevo Producto</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <form id="form-product">
+                <input type="hidden" id="product-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="product-name">Nombre del Producto</label>
+                        <input type="text" id="product-name" class="form-control" placeholder="Ej: Camisa Slim Fit Casual" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="product-category">Categoría</label>
+                            <select id="product-category" class="form-control" required>
+                                <option value="Ropa Masculina">Ropa Masculina</option>
+                                <option value="Ropa Femenina">Ropa Femenina</option>
+                                <option value="Ropa Infantil">Ropa Infantil</option>
+                                <option value="Calzado">Calzado</option>
+                                <option value="Accesorios">Accesorios</option>
+                                <option value="Varios">Varios</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="product-cost-price">Precio de Costo ($)</label>
+                            <input type="number" id="product-cost-price" class="form-control" placeholder="0.00" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-group col">
+                            <label for="product-selling-price">Precio de Venta ($)</label>
+                            <input type="number" id="product-selling-price" class="form-control" placeholder="0.00" min="0" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="product-stock">Stock Inicial</label>
+                            <input type="number" id="product-stock" class="form-control" placeholder="0" min="0" required>
+                        </div>
+                        <div class="form-group col">
+                            <label for="product-min-stock">Stock Mínimo (Alerta)</label>
+                            <input type="number" id="product-min-stock" class="form-control" placeholder="2" min="0" value="2" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-product">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: REABASTECER PRODUCTO (AÑADIR STOCK) -->
+    <div class="modal" id="modal-restock">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i data-lucide="package-check"></i> Reabastecer Producto</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <form id="form-restock">
+                <input type="hidden" id="restock-product-id">
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Estás a punto de ingresar más stock para: <strong id="restock-product-name" class="text-white"></strong></p>
+                    
+                    <div class="form-group">
+                        <label for="restock-date">Fecha de Reabastecimiento</label>
+                        <input type="date" id="restock-date" class="form-control" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="restock-qty">Cantidad a Agregar</label>
+                            <input type="number" id="restock-qty" class="form-control" min="1" value="10" required>
+                        </div>
+                        <div class="form-group col">
+                            <label for="restock-cost">Precio Unitario de Costo ($)</label>
+                            <input type="number" id="restock-cost" class="form-control" min="0" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="restock-generate-expense" checked>
+                            <span class="checkmark"></span>
+                            Generar automáticamente un GASTO en caja por esta compra.
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Registrar Ingreso</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- MODAL: REGISTRAR PRÉSTAMO -->
+    <div class="modal" id="modal-loan">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i data-lucide="hand-coins"></i> Registrar Nuevo Préstamo</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <form id="form-loan">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="loan-date">Fecha de Inicio</label>
+                        <input type="date" id="loan-date" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loan-client">Nombre del Cliente</label>
+                        <input type="text" id="loan-client" class="form-control" placeholder="Ej: Juan Pérez" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="loan-amount">Monto Prestado ($)</label>
+                            <input type="number" id="loan-amount" class="form-control" placeholder="0.00" min="1" step="0.01" required>
+                        </div>
+                        <div class="form-group col">
+                            <label for="loan-interest">Interés (%)</label>
+                            <input type="number" id="loan-interest" class="form-control" placeholder="Ej: 20" value="20" min="0" step="1" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="loan-total">Total a Cobrar ($)</label>
+                            <input type="number" id="loan-total" class="form-control" readonly>
+                        </div>
+                        <div class="form-group col">
+                            <label for="loan-days">Plazo (Días)</label>
+                            <input type="number" id="loan-days" class="form-control" value="24" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loan-quota">Cuota Sugerida (Diaria)</label>
+                        <input type="text" id="loan-quota" class="form-control" readonly>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Préstamo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR COBRO (PAGO) -->
+    <div class="modal" id="modal-payment">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i data-lucide="check-circle"></i> Registrar Pago (Cobro)</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <form id="form-payment">
+                <input type="hidden" id="payment-loan-id">
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Registrando cobro para: <strong id="payment-client-name" class="text-white"></strong></p>
+                    
+                    <div class="form-group">
+                        <label for="payment-date">Fecha de Pago</label>
+                        <input type="date" id="payment-date" class="form-control" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="payment-amount">Monto Cobrado ($)</label>
+                            <input type="number" id="payment-amount" class="form-control" min="0.01" step="0.01" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Guardar Cobro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMACIÓN PERSONALIZADA -->
+    <div class="modal" id="modal-confirm">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 8px;">
+                <h2 id="confirm-title" style="display: flex; align-items: center; gap: 10px; color: var(--warning);"><i data-lucide="alert-triangle"></i> Confirmación</h2>
+                <button class="btn-close modal-close" id="btn-confirm-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 8px; padding-bottom: 24px;">
+                <p id="confirm-message" class="text-white" style="font-size: 1rem; line-height: 1.5;"></p>
+            </div>
+            <div class="modal-footer" style="background: transparent; border-top: none; padding-top: 0; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn btn-secondary" id="btn-confirm-cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-ok" style="background: var(--primary-gradient);">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DE TOASTS (NOTIFICACIONES) -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Script de inicialización de la app -->
+    <script src="app.js"></script>
+</body>
+</html>
