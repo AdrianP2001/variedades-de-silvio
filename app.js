@@ -50,8 +50,7 @@ const DEMO_TRANSACTIONS = [
 // --- ESTADO DE LA APLICACIÓN ---
 let appState = {
     products: [],
-    transactions: [],
-    loans: []
+    transactions: []
 };
 
 // Instancias de los gráficos globales para poder destruirlas y recrearlas
@@ -154,7 +153,6 @@ function initApp() {
 
     // 4. Registrar controladores de formularios y botones
     setupFormHandlers();
-    setupLoanHandlers();
     setupQuickActionModals();
     setupThemeToggle();
 
@@ -183,7 +181,6 @@ function loadState() {
             // Asegurar que existan los arreglos
             if (!appState.products) appState.products = [];
             if (!appState.transactions) appState.transactions = [];
-            if (!appState.loans) appState.loans = [];
         } catch (e) {
             console.error("Error cargando base de datos guardada, inicializando vacía.", e);
             loadDemoData(false);
@@ -213,7 +210,6 @@ async function clearDatabase() {
     if (await showConfirm("Borrar Base de Datos", "¿Estás absolutamente seguro de borrar todos los datos? Esto borrará el inventario y todo el historial financiero.", "Borrar Todo", "Cancelar")) {
         appState.products = [];
         appState.transactions = [];
-        appState.loans = [];
         saveState();
         refreshActiveView();
         showToast("Base de datos vaciada.", "info");
@@ -317,11 +313,6 @@ function switchView(viewName) {
             titleEl.textContent = "Datos e Importación";
             subtitleEl.textContent = "Realiza copias de seguridad de tus datos o reinicia el sistema.";
             renderBackup();
-            break;
-        case "loans":
-            titleEl.textContent = "Préstamos y Cobros";
-            subtitleEl.textContent = "Gestión de microcréditos y registro de cuotas diarias.";
-            renderLoans();
             break;
     }
     
@@ -2016,206 +2007,5 @@ async function exportToExcel() {
         XLSX.writeFile(wb, 'inventario_y_movimientos.xlsx');
         showToast("Archivo Excel generado correctamente", "success");
     }
-}
-
-// --- MÓDULO DE PRÉSTAMOS Y COBROS ---
-function setupLoanHandlers() {
-    // Abrir Modal de Préstamo
-    const btnNewLoan = document.getElementById("btn-new-loan");
-    if (btnNewLoan) {
-        btnNewLoan.addEventListener("click", () => {
-            document.getElementById("form-loan").reset();
-            document.getElementById("loan-date").value = new Date().toISOString().substring(0, 10);
-            openModal("loan");
-        });
-    }
-
-    // Calcular Total y Cuota en vivo
-    const amountInput = document.getElementById("loan-amount");
-    const interestInput = document.getElementById("loan-interest");
-    const daysInput = document.getElementById("loan-days");
-    const totalInput = document.getElementById("loan-total");
-    const quotaInput = document.getElementById("loan-quota");
-
-    function calculateLoan() {
-        const amount = parseFloat(amountInput.value) || 0;
-        const interest = parseFloat(interestInput.value) || 0;
-        const days = parseInt(daysInput.value) || 1;
-        
-        const total = amount + (amount * (interest / 100));
-        const quota = total / days;
-        
-        totalInput.value = total.toFixed(2);
-        quotaInput.value = formatCurrency(quota) + " / día";
-    }
-
-    if (amountInput) amountInput.addEventListener("input", calculateLoan);
-    if (interestInput) interestInput.addEventListener("input", calculateLoan);
-    if (daysInput) daysInput.addEventListener("input", calculateLoan);
-
-    // Guardar Préstamo
-    const formLoan = document.getElementById("form-loan");
-    if (formLoan) {
-        formLoan.addEventListener("submit", (e) => {
-            e.preventDefault();
-            const date = document.getElementById("loan-date").value;
-            const client = document.getElementById("loan-client").value;
-            const amount = parseFloat(amountInput.value);
-            const interest = parseFloat(interestInput.value);
-            const total = parseFloat(totalInput.value);
-            const days = parseInt(daysInput.value);
-            
-            const newLoan = {
-                id: generateId("loan"),
-                date: date,
-                client: client,
-                amount: amount,
-                interest: interest,
-                total: total,
-                days: days,
-                paid: 0,
-                status: 'active'
-            };
-
-            // Registrar la salida de dinero en transacciones (Egreso)
-            const tx = {
-                id: generateId("tx"),
-                date: date,
-                type: "egreso",
-                description: `PRESTAMO OTORGADO: ${client}`,
-                category: "Otros Gastos",
-                value: amount
-            };
-
-            if (!appState.loans) appState.loans = [];
-            appState.loans.push(newLoan);
-            appState.transactions.push(tx);
-            saveState();
-            
-            closeModal("loan");
-            renderLoans();
-            refreshActiveView();
-            showToast("Préstamo registrado correctamente", "success");
-        });
-    }
-
-    // Guardar Pago
-    const formPayment = document.getElementById("form-payment");
-    if (formPayment) {
-        formPayment.addEventListener("submit", (e) => {
-            e.preventDefault();
-            const loanId = document.getElementById("payment-loan-id").value;
-            const date = document.getElementById("payment-date").value;
-            const amount = parseFloat(document.getElementById("payment-amount").value);
-
-            const loan = appState.loans.find(l => l.id === loanId);
-            if (!loan) return;
-
-            loan.paid += amount;
-            if (loan.paid >= loan.total) {
-                loan.status = 'paid';
-            }
-
-            // Registrar el ingreso en transacciones
-            const tx = {
-                id: generateId("tx"),
-                date: date,
-                type: "ingreso",
-                description: `COBRO DE PRESTAMO: ${loan.client}`,
-                category: "Otros Ingresos",
-                value: amount
-            };
-
-            appState.transactions.push(tx);
-            saveState();
-            
-            closeModal("payment");
-            renderLoans();
-            refreshActiveView();
-            showToast("Pago registrado correctamente", "success");
-        });
-    }
-
-    // Filtros de búsqueda
-    const searchInput = document.getElementById("loan-search");
-    if (searchInput) searchInput.addEventListener("input", renderLoans);
-    
-    const filterStatus = document.getElementById("loan-filter-status");
-    if (filterStatus) filterStatus.addEventListener("change", renderLoans);
-}
-
-function openPaymentModal(loanId) {
-    const loan = appState.loans.find(l => l.id === loanId);
-    if (!loan) return;
-    
-    document.getElementById("form-payment").reset();
-    document.getElementById("payment-loan-id").value = loan.id;
-    document.getElementById("payment-client-name").textContent = loan.client;
-    document.getElementById("payment-date").value = new Date().toISOString().substring(0, 10);
-    
-    const quota = loan.total / loan.days;
-    const remaining = loan.total - loan.paid;
-    document.getElementById("payment-amount").value = Math.min(quota, remaining).toFixed(2);
-    
-    openModal("payment");
-}
-
-function renderLoans() {
-    const tbody = document.getElementById("loans-tbody");
-    if (!tbody) return;
-    
-    if (!appState.loans) appState.loans = [];
-
-    const search = (document.getElementById("loan-search").value || "").toLowerCase();
-    const statusFilter = document.getElementById("loan-filter-status").value || "all";
-
-    let filtered = appState.loans.filter(loan => {
-        const matchSearch = loan.client.toLowerCase().includes(search);
-        const matchStatus = statusFilter === "all" || loan.status === statusFilter;
-        return matchSearch && matchStatus;
-    });
-
-    tbody.innerHTML = "";
-
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No se encontraron préstamos.</td></tr>`;
-        return;
-    }
-
-    filtered.forEach(loan => {
-        const remaining = loan.total - loan.paid;
-        const quota = loan.total / loan.days;
-        
-        let statusBadge = '';
-        if (loan.status === 'paid') {
-            statusBadge = `<span class="badge badge-success">Pagado</span>`;
-        } else {
-            statusBadge = `<span class="badge badge-warning">Activo</span>`;
-        }
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${loan.date.split('-').reverse().join('/')}</td>
-            <td><strong>${loan.client}</strong></td>
-            <td class="text-right text-danger">${formatCurrency(loan.amount)}</td>
-            <td class="text-right">${formatCurrency(loan.total)}</td>
-            <td class="text-right fw-bold text-warning">${formatCurrency(remaining)}</td>
-            <td class="text-center">${formatCurrency(quota)}</td>
-            <td class="text-center">${statusBadge}</td>
-            <td class="text-center">
-                ${loan.status !== 'paid' ? `<button class="btn-icon btn-pay text-success" title="Registrar Pago" data-id="${loan.id}"><i data-lucide="dollar-sign"></i></button>` : '-'}
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    document.querySelectorAll(".btn-pay").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const id = e.currentTarget.getAttribute("data-id");
-            openPaymentModal(id);
-        });
-    });
-
-    lucide.createIcons();
 }
 

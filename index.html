@@ -116,12 +116,6 @@
                             <span>Datos y Respaldo</span>
                         </button>
                     </li>
-                    <li>
-                        <button class="nav-btn" data-view="loans" id="btn-nav-loans">
-                            <i data-lucide="hand-coins"></i>
-                            <span>Préstamos</span>
-                        </button>
-                    </li>
                 </ul>
             </nav>
 
@@ -567,52 +561,6 @@
                         </div>
                     </div>
                 </section>
-
-                <!-- VISTA 6: PRÉSTAMOS Y COBROS -->
-                <section id="view-loans" class="app-view">
-                    <div class="inventory-controls-container">
-                        <div class="search-box">
-                            <i data-lucide="search"></i>
-                            <input type="text" id="loan-search" placeholder="Buscar cliente por nombre...">
-                        </div>
-                        <div class="filters-box">
-                            <select id="loan-filter-status" class="form-select">
-                                <option value="all">Todos los Préstamos</option>
-                                <option value="active">Activos / Pendientes</option>
-                                <option value="paid">Pagados</option>
-                            </select>
-                            <button class="btn btn-primary btn-icon-text" id="btn-new-loan">
-                                <i data-lucide="plus-circle"></i>
-                                <span>Registrar Préstamo</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="dashboard-card">
-                        <div class="card-header">
-                            <h3>Cobros Diarios</h3>
-                        </div>
-                        <div class="table-container">
-                            <table class="data-table" id="loans-table">
-                                <thead>
-                                    <tr>
-                                        <th>Fecha Inicio</th>
-                                        <th>Cliente</th>
-                                        <th class="text-right">Monto Prestado</th>
-                                        <th class="text-right">Total a Cobrar</th>
-                                        <th class="text-right">Saldo Pendiente</th>
-                                        <th class="text-center">Cuota</th>
-                                        <th class="text-center">Estado</th>
-                                        <th class="text-center">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="loans-tbody">
-                                    <!-- JS dynamic table -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
             </div>
         </main>
     </div>
@@ -825,92 +773,6 @@
             </form>
         </div>
     </div>
-    <!-- MODAL: REGISTRAR PRÉSTAMO -->
-    <div class="modal" id="modal-loan">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i data-lucide="hand-coins"></i> Registrar Nuevo Préstamo</h2>
-                <button class="btn-close modal-close">&times;</button>
-            </div>
-            <form id="form-loan">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="loan-date">Fecha de Inicio</label>
-                        <input type="date" id="loan-date" class="form-control" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="loan-client">Nombre del Cliente</label>
-                        <input type="text" id="loan-client" class="form-control" placeholder="Ej: Juan Pérez" required>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group col">
-                            <label for="loan-amount">Monto Prestado ($)</label>
-                            <input type="number" id="loan-amount" class="form-control" placeholder="0.00" min="1" step="0.01" required>
-                        </div>
-                        <div class="form-group col">
-                            <label for="loan-interest">Interés (%)</label>
-                            <input type="number" id="loan-interest" class="form-control" placeholder="Ej: 20" value="20" min="0" step="1" required>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group col">
-                            <label for="loan-total">Total a Cobrar ($)</label>
-                            <input type="number" id="loan-total" class="form-control" readonly>
-                        </div>
-                        <div class="form-group col">
-                            <label for="loan-days">Plazo (Días)</label>
-                            <input type="number" id="loan-days" class="form-control" value="24" min="1" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="loan-quota">Cuota Sugerida (Diaria)</label>
-                        <input type="text" id="loan-quota" class="form-control" readonly>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Préstamo</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: REGISTRAR COBRO (PAGO) -->
-    <div class="modal" id="modal-payment">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i data-lucide="check-circle"></i> Registrar Pago (Cobro)</h2>
-                <button class="btn-close modal-close">&times;</button>
-            </div>
-            <form id="form-payment">
-                <input type="hidden" id="payment-loan-id">
-                <div class="modal-body">
-                    <p class="text-muted mb-3">Registrando cobro para: <strong id="payment-client-name" class="text-white"></strong></p>
-                    
-                    <div class="form-group">
-                        <label for="payment-date">Fecha de Pago</label>
-                        <input type="date" id="payment-date" class="form-control" required>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group col">
-                            <label for="payment-amount">Monto Cobrado ($)</label>
-                            <input type="number" id="payment-amount" class="form-control" min="0.01" step="0.01" required>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Guardar Cobro</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- MODAL: CONFIRMACIÓN PERSONALIZADA -->
     <div class="modal" id="modal-confirm">
         <div class="modal-content" style="max-width: 450px;">
