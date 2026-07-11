@@ -107,4 +107,4 @@ if __name__ == '__main__':
     # 4. Asignar evento de confirmación de cierre
     window.events.closing += on_closing
     
-    webview.start()
+    webview.start(gui='edgechromium')

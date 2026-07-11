@@ -581,19 +581,28 @@ function setupFormHandlers() {
 
     // 4. FORMULARIO REABASTECIMIENTO
     const formRestock = document.getElementById("form-restock");
-    formRestock.addEventListener("submit", (e) => {
+    formRestock.addEventListener("submit", async (e) => {
         e.preventDefault();
         const prodId = document.getElementById("restock-product-id").value;
         const qty = parseInt(document.getElementById("restock-qty").value);
         const costPrice = parseFloat(document.getElementById("restock-cost").value);
         const date = document.getElementById("restock-date").value;
-        const generateExpense = document.getElementById("restock-generate-expense").checked;
 
         const product = appState.products.find(p => p.id === prodId);
         if (product) {
+            const totalCost = costPrice * qty;
+            
+            // Mostrar modal de confirmación personalizado para decidir el gasto
+            const choice = await showRestockConfirm(product.name, qty, totalCost);
+            
+            if (choice === "cancel") {
+                // Cancelar la operación de reabastecimiento por completo
+                return;
+            }
+            
             product.stock += qty; // Aumentar stock en inventario
             
-            if (generateExpense) {
+            if (choice === "expense") {
                 // Registrar egreso por compra de mercancía
                 const newTx = {
                     id: generateId("tx"),
@@ -601,7 +610,7 @@ function setupFormHandlers() {
                     type: "egreso",
                     description: `REABASTECIMIENTO: ${product.name} (x${qty})`,
                     category: "Compra de Mercancía",
-                    value: costPrice * qty,
+                    value: totalCost,
                     productId: prodId,
                     qty: qty
                 };
@@ -611,7 +620,12 @@ function setupFormHandlers() {
             saveState();
             closeModal("restock");
             refreshActiveView();
-            showToast("Stock reabastecido correctamente.", "success");
+            
+            if (choice === "expense") {
+                showToast("Stock reabastecido y gasto registrado.", "success");
+            } else {
+                showToast("Stock reabastecido correctamente (sin registrar gasto).", "success");
+            }
         }
     });
 
@@ -1893,6 +1907,50 @@ function showConfirm(title, message, confirmText = "Confirmar", cancelText = "Ca
     });
 }
 
+function showRestockConfirm(productName, qty, totalCost) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById("modal-restock-confirm");
+        const messageEl = document.getElementById("restock-confirm-message");
+        const btnExpense = document.getElementById("btn-restock-confirm-expense");
+        const btnNoExpense = document.getElementById("btn-restock-confirm-no-expense");
+        const btnCancel = document.getElementById("btn-restock-confirm-cancel");
+        const btnClose = document.getElementById("btn-restock-confirm-close");
+
+        if (!modal) {
+            // fallback
+            const val = window.confirm(`¿Deseas registrar esta reposición de ${productName} (x${qty}) por ${formatCurrency(totalCost)} como un Gasto en la caja?\n\nAceptar: Registrar como Gasto\nCancelar: Solo Reponer Stock (dinero aparte)`);
+            resolve(val ? "expense" : "no-expense");
+            return;
+        }
+
+        // Configurar mensaje dinámico
+        messageEl.innerHTML = `Estás a punto de reponer <strong>${qty}</strong> unidades de <strong>${productName}</strong> con un costo total de <strong>${formatCurrency(totalCost)}</strong>.<br><br>¿Cómo deseas registrar esta reposición?`;
+
+        // Mostrar modal
+        modal.classList.add("active");
+        lucide.createIcons();
+
+        const cleanupAndClose = (result) => {
+            btnExpense.removeEventListener("click", onExpense);
+            btnNoExpense.removeEventListener("click", onNoExpense);
+            btnCancel.removeEventListener("click", onCancel);
+            if (btnClose) btnClose.removeEventListener("click", onCancel);
+            modal.classList.remove("active");
+            resolve(result);
+        };
+
+        const onExpense = () => cleanupAndClose("expense");
+        const onNoExpense = () => cleanupAndClose("no-expense");
+        const onCancel = () => cleanupAndClose("cancel");
+
+        btnExpense.addEventListener("click", onExpense);
+        btnNoExpense.addEventListener("click", onNoExpense);
+        btnCancel.addEventListener("click", onCancel);
+        if (btnClose) btnClose.addEventListener("click", onCancel);
+    });
+}
+
+
 function setupExportHandlers() {
     document.getElementById("btn-export-pdf-report").addEventListener("click", exportTransactionsToPDF);
     document.getElementById("btn-export-pdf-inventory").addEventListener("click", exportInventoryToPDF);
@@ -2004,7 +2062,6 @@ async function exportToExcel() {
         'Categoría': t.category,
         'Valor': t.value
     })));
-    XLSX.utils.book_append_sheet(wb, transactionsWS, 'Movimientos');
     XLSX.utils.book_append_sheet(wb, transactionsWS, 'Movimientos');
 
     if (window.pywebview && window.pywebview.api) {

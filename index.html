@@ -810,13 +810,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="restock-generate-expense" checked>
-                            <span class="checkmark"></span>
-                            Generar automáticamente un GASTO en caja por esta compra.
-                        </label>
-                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
@@ -924,6 +918,37 @@
             <div class="modal-footer" style="background: transparent; border-top: none; padding-top: 0; justify-content: flex-end; gap: 12px;">
                 <button type="button" class="btn btn-secondary" id="btn-confirm-cancel">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="btn-confirm-ok" style="background: var(--primary-gradient);">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMACIÓN REABASTECIMIENTO (CON/SIN GASTO) -->
+    <div class="modal" id="modal-restock-confirm">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 8px;">
+                <h2 style="display: flex; align-items: center; gap: 10px; color: var(--warning);">
+                    <i data-lucide="help-circle"></i> Confirmar Reposición
+                </h2>
+                <button class="btn-close modal-close" id="btn-restock-confirm-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 8px; padding-bottom: 24px;">
+                <p class="text-white mb-3" style="font-size: 1.05rem; line-height: 1.5;" id="restock-confirm-message">
+                    ¿Deseas registrar esta reposición como un gasto en la caja de ganancias o no ponerla?
+                </p>
+                <div style="background-color: rgba(255, 255, 255, 0.05); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-top: 16px;">
+                    <p class="text-white" style="font-size: 0.9rem; font-weight: 600; margin-bottom: 8px;">¿Cómo deseas registrar esta operación?</p>
+                    <p class="text-muted" style="font-size: 0.85rem; line-height: 1.5; margin-bottom: 8px;">
+                        <span style="color: var(--danger); font-weight: 600;">• Registrar con Gasto:</span> Se sumará el stock y se descontará el dinero de la caja de ganancias (útil si usaste dinero de la caja).
+                    </p>
+                    <p class="text-muted" style="font-size: 0.85rem; line-height: 1.5; margin: 0;">
+                        <span style="color: var(--info); font-weight: 600;">• Solo Reponer Stock:</span> Se sumará el stock al inventario pero NO se restará dinero de la caja (útil si usaste dinero externo/aparte).
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer" style="background: transparent; border-top: none; padding-top: 0; justify-content: flex-end; gap: 12px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" id="btn-restock-confirm-cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-restock-confirm-no-expense">Solo Reponer Stock</button>
+                <button type="button" class="btn btn-danger" id="btn-restock-confirm-expense">Registrar con Gasto</button>
             </div>
         </div>
     </div>
