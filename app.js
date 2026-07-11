@@ -2133,20 +2133,8 @@ function setupLoanHandlers() {
                 paid: 0,
                 status: 'active'
             };
-
-            // Registrar la salida de dinero en transacciones (Egreso)
-            const tx = {
-                id: generateId("tx"),
-                date: date,
-                type: "egreso",
-                description: `PRESTAMO OTORGADO: ${client}`,
-                category: "Otros Gastos",
-                value: amount
-            };
-
             if (!appState.loans) appState.loans = [];
             appState.loans.push(newLoan);
-            appState.transactions.push(tx);
             saveState();
             
             closeModal("loan");
@@ -2172,18 +2160,6 @@ function setupLoanHandlers() {
             if (loan.paid >= loan.total) {
                 loan.status = 'paid';
             }
-
-            // Registrar el ingreso en transacciones
-            const tx = {
-                id: generateId("tx"),
-                date: date,
-                type: "ingreso",
-                description: `COBRO DE PRESTAMO: ${loan.client}`,
-                category: "Otros Ingresos",
-                value: amount
-            };
-
-            appState.transactions.push(tx);
             saveState();
             
             closeModal("payment");
@@ -2222,6 +2198,35 @@ function renderLoans() {
     if (!tbody) return;
     
     if (!appState.loans) appState.loans = [];
+
+    // Calcular KPIs de préstamos
+    let totalCapital = 0;
+    let totalToCollect = 0;
+    let totalCollected = 0;
+    let totalPending = 0;
+    let activeLoansCount = 0;
+
+    appState.loans.forEach(loan => {
+        totalCollected += loan.paid;
+        if (loan.status === 'active') {
+            totalCapital += loan.amount;
+            totalToCollect += loan.total;
+            totalPending += (loan.total - loan.paid);
+            activeLoansCount++;
+        }
+    });
+
+    const kpiCapital = document.getElementById("loan-kpi-capital");
+    const kpiCapitalSub = document.getElementById("loan-kpi-capital-sub");
+    const kpiTotal = document.getElementById("loan-kpi-total");
+    const kpiCollected = document.getElementById("loan-kpi-collected");
+    const kpiPending = document.getElementById("loan-kpi-pending");
+
+    if (kpiCapital) kpiCapital.textContent = formatCurrency(totalCapital);
+    if (kpiCapitalSub) kpiCapitalSub.textContent = `${activeLoansCount} préstamo${activeLoansCount !== 1 ? 's' : ''} activo${activeLoansCount !== 1 ? 's' : ''}`;
+    if (kpiTotal) kpiTotal.textContent = formatCurrency(totalToCollect);
+    if (kpiCollected) kpiCollected.textContent = formatCurrency(totalCollected);
+    if (kpiPending) kpiPending.textContent = formatCurrency(totalPending);
 
     const search = (document.getElementById("loan-search").value || "").toLowerCase();
     const statusFilter = document.getElementById("loan-filter-status").value || "all";

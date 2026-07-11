@@ -585,6 +585,49 @@
                                 <i data-lucide="plus-circle"></i>
                                 <span>Registrar Préstamo</span>
                             </button>
+                    </div>
+
+                    <!-- GRIDS DE KPI PARA PRÉSTAMOS -->
+                    <div class="kpi-grid" style="margin-bottom: 24px;">
+                        <div class="kpi-card card-expense">
+                            <div class="kpi-icon">
+                                <i data-lucide="hand-coins"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Capital Prestado</span>
+                                <h3 class="kpi-value text-danger" id="loan-kpi-capital">$0.00</h3>
+                                <span class="kpi-trend text-danger" id="loan-kpi-capital-sub">0 préstamos activos</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card card-balance">
+                            <div class="kpi-icon">
+                                <i data-lucide="calculator"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Total a Cobrar</span>
+                                <h3 class="kpi-value text-warning" id="loan-kpi-total">$0.00</h3>
+                                <span class="kpi-trend text-warning">Capital + Interés</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card card-income">
+                            <div class="kpi-icon">
+                                <i data-lucide="trending-up"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Total Recaudado</span>
+                                <h3 class="kpi-value text-success" id="loan-kpi-collected">$0.00</h3>
+                                <span class="kpi-trend text-success">Cuotas cobradas</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card card-inventory">
+                            <div class="kpi-icon">
+                                <i data-lucide="badge-alert"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Saldo Pendiente</span>
+                                <h3 class="kpi-value text-info" id="loan-kpi-pending">$0.00</h3>
+                                <span class="kpi-trend text-info">Por recuperar</span>
+                            </div>
                         </div>
                     </div>
 
