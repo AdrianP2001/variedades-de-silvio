@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Variedades de Silvio - Sistema de Control de Inventario y Finanzas</title>
+    <link rel="icon" type="image/png" href="stitch_logo.png">
     <!-- Google Fonts: Outfit & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,8 +27,8 @@
     <div id="login-screen">
         <div class="login-card">
             <div class="login-logo">
-                <div class="login-logo-icon">
-                    <i data-lucide="sparkles"></i>
+                <div class="login-logo-icon" style="background: transparent; border: none; box-shadow: none;">
+                    <img src="stitch_logo.png" alt="Logo Variedades de Silvio" style="width: 100%; height: 100%; filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.4)); object-fit: contain;">
                 </div>
                 <h1>Variedades de Silvio</h1>
                 <p>Control de Inventario y Finanzas</p>
@@ -74,8 +75,8 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo-container">
-                    <div class="logo-icon">
-                        <i data-lucide="sparkles"></i>
+                    <div class="logo-icon" style="background: transparent; padding: 0;">
+                        <img src="stitch_logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
                     </div>
                     <div class="logo-text">
                         <h2>Variedades de Silvio</h2>
@@ -134,8 +135,8 @@
                     </label>
                 </div>
                 <div class="user-profile">
-                    <div class="user-avatar">
-                        <i data-lucide="store"></i>
+                    <div class="user-avatar" style="background: transparent; padding: 0;">
+                        <img src="bsc.png" alt="BSC Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
                     </div>
                     <div class="user-info">
                         <span class="user-name">Variedades de Silvio</span>
@@ -307,7 +308,7 @@
                     <div class="inventory-controls-container">
                         <div class="search-box">
                             <i data-lucide="search"></i>
-                            <input type="text" id="inventory-search" placeholder="Buscar por nombre o código de producto...">
+                            <input type="text" id="inventory-search" placeholder="Buscar por nombre o código de producto..." autocomplete="off" data-lpignore="true">
                         </div>
                         <div class="filters-box">
                             <select id="inventory-filter-category" class="form-select">
@@ -361,7 +362,7 @@
                     <div class="inventory-controls-container">
                         <div class="search-box">
                             <i data-lucide="search"></i>
-                            <input type="text" id="transaction-search" placeholder="Buscar por descripción...">
+                            <input type="text" id="transaction-search" placeholder="Buscar por descripción..." autocomplete="off" data-lpignore="true">
                         </div>
                         <div class="filters-box">
                             <select id="transaction-filter-type" class="form-select">
@@ -404,88 +405,167 @@
 
                 <!-- VISTA 4: REPORTES -->
                 <section id="view-reports" class="app-view">
-                    <!-- Selector de Período -->
-                    <div class="reports-selector-card">
-                        <div class="period-selectors">
-                            <button class="btn btn-pill" data-period="diario">Hoy</button>
-                            <button class="btn btn-pill" data-period="semanal">Semanal (Últimos 7 Días)</button>
-                            <button class="btn btn-pill" data-period="mensual">Mensual (Mes Actual)</button>
-                            <button class="btn btn-pill active" data-period="anual">Anual</button>
+                    <!-- Selector de Módulo (Ventas vs Préstamos) -->
+                    <div class="reports-selector-card" style="margin-bottom: 16px;">
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; align-items: center; width: 100%;">
+                            <div class="module-selectors" id="report-module-selector" style="display: flex; gap: 8px;">
+                                <button class="btn btn-pill active" data-module="sales">
+                                    <i data-lucide="shopping-bag" style="width:16px; height:16px; margin-right:4px;"></i> Ventas e Inventario
+                                </button>
+                                <button class="btn btn-pill" data-module="loans">
+                                    <i data-lucide="hand-coins" style="width:16px; height:16px; margin-right:4px;"></i> Préstamos y Clientes
+                                </button>
+                            </div>
+                            <div class="period-selectors">
+                                <button class="btn btn-pill" data-period="diario">Hoy</button>
+                                <button class="btn btn-pill" data-period="semanal">Semanal (7 Días)</button>
+                                <button class="btn btn-pill" data-period="mensual">Mensual</button>
+                                <button class="btn btn-pill active" data-period="anual">Anual</button>
+                            </div>
                         </div>
-                        <div class="report-summary-text" id="report-period-info">
+                        <div class="report-summary-text" id="report-period-info" style="margin-top: 12px;">
                             Visualizando balance consolidado del año 2026.
                         </div>
                     </div>
 
-                    <!-- Métricas de Reportes -->
-                    <div class="reports-grid-top">
-                        <div class="report-metric-card">
-                            <span class="label">Margen de Ganancia Promedio</span>
-                            <h2 id="report-margin-pct">0.0%</h2>
-                            <p class="subtext">Sobre precio de venta de productos</p>
+                    <!-- MÓDULO 1: VENTAS E INVENTARIO -->
+                    <div id="reports-sales-module" class="app-view active" style="gap: 32px;">
+                        <!-- Métricas de Reportes -->
+                        <div class="reports-grid-top">
+                            <div class="report-metric-card">
+                                <span class="label">Margen de Ganancia Promedio</span>
+                                <h2 id="report-margin-pct">0.0%</h2>
+                                <p class="subtext">Sobre precio de venta de productos</p>
+                            </div>
+                            <div class="report-metric-card">
+                                <span class="label">Ganancia Neta de Ventas</span>
+                                <h2 id="report-sales-profit" class="text-success">$0.00</h2>
+                                <p class="subtext" id="report-sales-profit-detail">Venta menos el precio de costo del producto</p>
+                            </div>
+                            <div class="report-metric-card">
+                                <span class="label">Ganancia Neta (Ingresos - Gastos)</span>
+                                <h2 id="report-net-profit" class="text-success">$0.00</h2>
+                                <p class="subtext">Beneficio real en caja en el periodo</p>
+                            </div>
+                            <div class="report-metric-card">
+                                <span class="label">Producto Más Vendido</span>
+                                <h2 id="report-top-product">-</h2>
+                                <p class="subtext" id="report-top-product-qty">0 unidades vendidas</p>
+                            </div>
                         </div>
-                        <div class="report-metric-card">
-                            <span class="label">Ganancia Neta (Ingresos - Gastos)</span>
-                            <h2 id="report-net-profit" class="text-success">$0.00</h2>
-                            <p class="subtext">Beneficio real en caja en el periodo</p>
+
+                        <!-- Gráficos de Reportes -->
+                        <div class="reports-charts-container">
+                            <div class="dashboard-card chart-half">
+                                <div class="card-header">
+                                    <h3>Ingresos vs Egresos Historico</h3>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="chart-reports-flow"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="dashboard-card chart-half">
+                                <div class="card-header">
+                                    <h3>Distribución de Gastos (Egresos)</h3>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="chart-reports-expenses-pie"></canvas>
+                                </div>
+                            </div>
                         </div>
-                        <div class="report-metric-card">
-                            <span class="label">Producto Más Vendido</span>
-                            <h2 id="report-top-product">-</h2>
-                            <p class="subtext" id="report-top-product-qty">0 unidades vendidas</p>
+
+                        <div class="reports-charts-container mt-4">
+                            <div class="dashboard-card chart-half">
+                                <div class="card-header">
+                                    <h3>Rendimiento por Categoría de Productos</h3>
+                                </div>
+                                <div class="chart-container">
+                                    <canvas id="chart-reports-products-bar"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="dashboard-card chart-half">
+                                <div class="card-header">
+                                    <h3>Rentabilidad Mensual</h3>
+                                </div>
+                                <div class="table-container compact-table">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Mes</th>
+                                                <th class="text-right">Ingresos</th>
+                                                <th class="text-right">Gastos</th>
+                                                <th class="text-right" title="Ventas menos el precio de costo del producto">Gan. Neta</th>
+                                                <th class="text-right">Resultado</th>
+                                                <th class="text-center">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="monthly-summary-tbody">
+                                            <!-- JS dynamic table -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Gráficos de Reportes -->
-                    <div class="reports-charts-container">
-                        <div class="dashboard-card chart-half">
-                            <div class="card-header">
-                                <h3>Ingresos vs Egresos Historico</h3>
+                    <!-- MÓDULO 2: PRÉSTAMOS Y CLIENTES -->
+                    <div id="reports-loans-module" class="app-view" style="display: none; gap: 32px;">
+                        <div class="dashboard-card" style="grid-column: 1 / -1;">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <h3><i data-lucide="hand-coins"></i> Reporte de Préstamos y Puntualidad de Clientes</h3>
+                                <div class="search-box" style="max-width: 350px;">
+                                    <i data-lucide="user-search"></i>
+                                    <select id="report-loan-client-select" class="form-select" style="background: transparent; border: none; color: var(--text-main); font-weight: 500; cursor: pointer;">
+                                        <option value="">-- Seleccionar cliente para ver historial --</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="chart-container">
-                                <canvas id="chart-reports-flow"></canvas>
-                            </div>
-                        </div>
+                            <div class="card-body padding-lg">
+                                <div id="report-loan-stats-container" class="reports-grid-top mb-4">
+                                    <div class="report-metric-card">
+                                        <span class="label">Total Intereses Recaudados</span>
+                                        <h2 id="report-loan-total-interest" class="text-success">$0.00</h2>
+                                        <p class="subtext">Ganancia neta real cobrada por préstamos</p>
+                                    </div>
+                                    <div class="report-metric-card">
+                                        <span class="label">Préstamos Pagados vs Renovados</span>
+                                        <h2 id="report-loan-status-summary">0 / 0</h2>
+                                        <p class="subtext" id="report-loan-status-sub">Pagados / Renovados</p>
+                                    </div>
+                                    <div class="report-metric-card">
+                                        <span class="label">Capital Pendiente por Recuperar</span>
+                                        <h2 id="report-loan-pending-capital" class="text-info">$0.00</h2>
+                                        <p class="subtext">Saldo activo por cobrar</p>
+                                    </div>
+                                </div>
 
-                        <div class="dashboard-card chart-half">
-                            <div class="card-header">
-                                <h3>Distribución de Gastos (Egresos)</h3>
-                            </div>
-                            <div class="chart-container">
-                                <canvas id="chart-reports-expenses-pie"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="reports-charts-container mt-4">
-                        <div class="dashboard-card chart-half">
-                            <div class="card-header">
-                                <h3>Rendimiento por Categoría de Productos</h3>
-                            </div>
-                            <div class="chart-container">
-                                <canvas id="chart-reports-products-bar"></canvas>
-                            </div>
-                        </div>
-
-                        <div class="dashboard-card chart-half">
-                            <div class="card-header">
-                                <h3>Rentabilidad Mensual</h3>
-                            </div>
-                            <div class="table-container compact-table">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Mes</th>
-                                            <th class="text-right">Ingresos</th>
-                                            <th class="text-right">Gastos</th>
-                                            <th class="text-right">Resultado</th>
-                                            <th class="text-center">Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="monthly-summary-tbody">
-                                        <!-- JS dynamic table -->
-                                    </tbody>
-                                </table>
+                                <!-- HISTORIAL DEL CLIENTE SELECCIONADO -->
+                                <div id="report-loan-client-details" style="display: none; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; margin-top: 16px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                                        <h4 id="report-client-name-title" class="text-white" style="font-size: 1.2rem; margin: 0;"></h4>
+                                        <div id="report-client-badges" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                                    </div>
+                                    <div class="table-container compact-table">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Fecha Inicio</th>
+                                                    <th class="text-right">Monto</th>
+                                                    <th class="text-right">Total</th>
+                                                    <th class="text-right">Pagado</th>
+                                                    <th class="text-center">Cuota / Frecuencia</th>
+                                                    <th class="text-center">Estado</th>
+                                                    <th class="text-center">Abonos (Puntualidad)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="report-client-history-tbody">
+                                                <!-- Dynamic content -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -573,13 +653,14 @@
                     <div class="inventory-controls-container">
                         <div class="search-box">
                             <i data-lucide="search"></i>
-                            <input type="text" id="loan-search" placeholder="Buscar cliente por nombre...">
+                            <input type="text" id="loan-search" placeholder="Buscar cliente por nombre..." autocomplete="off" data-lpignore="true">
                         </div>
                         <div class="filters-box">
                             <select id="loan-filter-status" class="form-select">
                                 <option value="all">Todos los Préstamos</option>
                                 <option value="active">Activos / Pendientes</option>
                                 <option value="paid">Pagados</option>
+                                <option value="renewed">Renovados</option>
                             </select>
                             <button class="btn btn-primary btn-icon-text" id="btn-new-loan">
                                 <i data-lucide="plus-circle"></i>
@@ -620,6 +701,16 @@
                                 <span class="kpi-trend text-success">Cuotas cobradas</span>
                             </div>
                         </div>
+                        <div class="kpi-card card-income">
+                            <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">
+                                <i data-lucide="piggy-bank"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Ingreso Neto (Interés)</span>
+                                <h3 class="kpi-value text-success" id="loan-kpi-interest">$0.00</h3>
+                                <span class="kpi-trend text-success">Ganancia por Intereses</span>
+                            </div>
+                        </div>
                         <div class="kpi-card card-inventory">
                             <div class="kpi-icon">
                                 <i data-lucide="badge-alert"></i>
@@ -645,7 +736,7 @@
                                         <th class="text-right">Monto Prestado</th>
                                         <th class="text-right">Total a Cobrar</th>
                                         <th class="text-right">Saldo Pendiente</th>
-                                        <th class="text-center">Cuota</th>
+                                        <th class="text-center">Cuota / Frecuencia</th>
                                         <th class="text-center">Estado</th>
                                         <th class="text-center">Acciones</th>
                                     </tr>
@@ -895,18 +986,29 @@
 
                     <div class="form-row">
                         <div class="form-group col">
-                            <label for="loan-total">Total a Cobrar ($)</label>
-                            <input type="number" id="loan-total" class="form-control" readonly>
+                            <label for="loan-frequency">Frecuencia de Pago</label>
+                            <select id="loan-frequency" class="form-control" required>
+                                <option value="diaria">Diaria</option>
+                                <option value="semanal">Semanal</option>
+                                <option value="quincenal">Quincenal</option>
+                                <option value="mensual">Mensual</option>
+                            </select>
                         </div>
                         <div class="form-group col">
-                            <label for="loan-days">Plazo (Días)</label>
+                            <label for="loan-days">Plazo (Nº de Cuotas)</label>
                             <input type="number" id="loan-days" class="form-control" value="24" min="1" required>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="loan-quota">Cuota Sugerida (Diaria)</label>
-                        <input type="text" id="loan-quota" class="form-control" readonly>
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="loan-total">Total a Cobrar ($)</label>
+                            <input type="number" id="loan-total" class="form-control" readonly>
+                        </div>
+                        <div class="form-group col">
+                            <label for="loan-quota">Valor de Cuota</label>
+                            <input type="text" id="loan-quota" class="form-control" readonly>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -926,19 +1028,35 @@
             </div>
             <form id="form-payment">
                 <input type="hidden" id="payment-loan-id">
+                <input type="hidden" id="payment-current-pending">
+                <input type="hidden" id="payment-regular-quota">
                 <div class="modal-body">
                     <p class="text-muted mb-3">Registrando cobro para: <strong id="payment-client-name" class="text-white"></strong></p>
                     
-                    <div class="form-group">
-                        <label for="payment-date">Fecha de Pago</label>
-                        <input type="date" id="payment-date" class="form-control" required>
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="payment-date">Fecha de Pago</label>
+                            <input type="date" id="payment-date" class="form-control" required>
+                        </div>
+                        <div class="form-group col">
+                            <label for="payment-pending-display">Saldo Pendiente Actual ($)</label>
+                            <input type="text" id="payment-pending-display" class="form-control" readonly style="color: var(--warning); font-weight: bold;">
+                        </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group col">
-                            <label for="payment-amount">Monto Cobrado ($)</label>
-                            <input type="number" id="payment-amount" class="form-control" min="0.01" step="0.01" required>
+                            <label for="payment-amount">Monto Cobrado / Abonado ($)</label>
+                            <input type="number" id="payment-amount" class="form-control" min="0.01" step="0.01" placeholder="0.00" required style="font-size: 1.1rem; font-weight: 600; color: var(--success);">
                         </div>
+                        <div class="form-group col">
+                            <label for="payment-new-pending-display">Nuevo Saldo Resultante ($)</label>
+                            <input type="text" id="payment-new-pending-display" class="form-control" readonly style="font-weight: bold;">
+                        </div>
+                    </div>
+
+                    <div id="payment-info-box" style="margin-top: 12px; padding: 10px 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.85rem;" class="text-muted">
+                        <!-- Dynamic calculation info -->
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -946,6 +1064,126 @@
                     <button type="submit" class="btn btn-success">Guardar Cobro</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL: RENOVAR PRÉSTAMO -->
+    <div class="modal" id="modal-renew-loan">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i data-lucide="refresh-cw"></i> Renovar Préstamo</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <form id="form-renew-loan">
+                <input type="hidden" id="renew-old-loan-id">
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Renovando préstamo para: <strong id="renew-client-name" class="text-white"></strong></p>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="renew-date">Fecha de Renovación</label>
+                            <input type="date" id="renew-date" class="form-control" required>
+                        </div>
+                        <div class="form-group col">
+                            <label for="renew-old-pending">Saldo Pendiente Anterior ($)</label>
+                            <input type="number" id="renew-old-pending" class="form-control" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-container" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="renew-include-pending" checked>
+                            <span class="text-white">Sumar saldo pendiente al capital del nuevo préstamo</span>
+                        </label>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="renew-new-capital">Nuevo Capital Entregado ($)</label>
+                            <input type="number" id="renew-new-capital" class="form-control" placeholder="0.00" min="0" step="0.01" value="0">
+                        </div>
+                        <div class="form-group col">
+                            <label for="renew-total-capital">Capital Base Total ($)</label>
+                            <input type="number" id="renew-total-capital" class="form-control" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="renew-interest">Interés (%)</label>
+                            <input type="number" id="renew-interest" class="form-control" value="20" min="0" step="1" required>
+                        </div>
+                        <div class="form-group col">
+                            <label for="renew-frequency">Frecuencia de Pago</label>
+                            <select id="renew-frequency" class="form-control" required>
+                                <option value="diaria">Diaria</option>
+                                <option value="semanal">Semanal</option>
+                                <option value="quincenal">Quincenal</option>
+                                <option value="mensual">Mensual</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="renew-days">Plazo (Nº de Cuotas)</label>
+                            <input type="number" id="renew-days" class="form-control" value="24" min="1" required>
+                        </div>
+                        <div class="form-group col">
+                            <label for="renew-total">Total a Cobrar ($)</label>
+                            <input type="number" id="renew-total" class="form-control" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="renew-quota">Valor de Nueva Cuota</label>
+                        <input type="text" id="renew-quota" class="form-control" readonly>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Confirmar Renovación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: HISTORIAL DEL CLIENTE -->
+    <div class="modal" id="modal-loan-history">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2><i data-lucide="history"></i> Historial de Préstamos del Cliente</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="client-history-header" style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: var(--radius-md); margin-bottom: 20px; border: 1px solid var(--border-color);">
+                    <h3 id="history-client-name" class="text-white mb-2" style="font-size: 1.3rem;"></h3>
+                    <div id="history-client-stats" style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.9rem;"></div>
+                </div>
+
+                <h4 class="text-white mb-3">Historial de Préstamos Registrados</h4>
+                <div class="table-container" style="max-height: 350px; overflow-y: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha Inicio</th>
+                                <th class="text-right">Monto</th>
+                                <th class="text-right">Total</th>
+                                <th class="text-right">Pagado</th>
+                                <th class="text-center">Cuota / Frecuencia</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Abonos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-loans-tbody">
+                            <!-- JS dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary modal-close">Cerrar</button>
+            </div>
         </div>
     </div>
 

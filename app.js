@@ -489,7 +489,10 @@ function setupFormHandlers() {
             category: cat,
             value: val,
             productId: prodId || null,
-            qty: prodId ? qty : null
+            qty: prodId ? qty : null,
+            // Se congela el costo del producto al momento de la venta para que la
+            // ganancia histórica no cambie si después se edita el precio de costo
+            unitCost: prodId ? appState.products.find(p => p.id === prodId).costPrice : null
         };
         
         appState.transactions.push(newTx);
@@ -853,6 +856,8 @@ function renderDashboardRecentActivity() {
         `;
         tbody.appendChild(tr);
     });
+
+    lucide.createIcons();
 }
 
 function renderDashboardChart() {
@@ -1043,6 +1048,8 @@ function renderInventory() {
         tbody.appendChild(tr);
     });
 
+    lucide.createIcons();
+
     // Registrar los eventos en vivo de los inputs de búsqueda/filtro
     setupInventorySearchListeners();
 }
@@ -1185,6 +1192,8 @@ function renderTransactions() {
         tbody.appendChild(tr);
     });
 
+    lucide.createIcons();
+
     setupTransactionSearchListeners();
 }
 
@@ -1266,6 +1275,43 @@ async function handleDeleteTransaction(txId) {
     }
 }
 
+// --- CÁLCULO DE GANANCIA NETA (VENTA - COSTO DEL PRODUCTO) ---
+
+// Costo total de la mercadería de una venta. Usa el costo congelado al momento
+// de la venta y, para movimientos viejos, cae al costo actual del producto.
+function getSaleCost(tx) {
+    if (!tx.productId || !tx.qty) return 0;
+    if (typeof tx.unitCost === "number" && tx.unitCost >= 0) return tx.unitCost * tx.qty;
+    const product = appState.products.find(p => p.id === tx.productId);
+    return product ? product.costPrice * tx.qty : 0;
+}
+
+// Ganancia real de las ventas: lo facturado menos lo que costó la mercadería.
+// No descuenta gastos operativos ni reabastecimientos (eso ya lo hace la Ganancia Neta de caja).
+function calcSalesProfit(txList) {
+    let revenue = 0;
+    let cost = 0;
+    let unlinkedRevenue = 0;
+
+    txList.forEach(t => {
+        if (t.type !== "ingreso") return;
+        revenue += t.value;
+        if (t.productId && t.qty) {
+            cost += getSaleCost(t);
+        } else {
+            unlinkedRevenue += t.value;
+        }
+    });
+
+    return {
+        revenue,
+        cost,
+        profit: revenue - cost,
+        unlinkedRevenue,
+        marginPct: revenue > 0 ? ((revenue - cost) / revenue * 100) : 0
+    };
+}
+
 // --- VISTA 4: INFORME Y REPORTES (RENDERING Y GRÁFICOS) ---
 function renderReports() {
     // 1. Obtener Periodo Activo
@@ -1330,6 +1376,9 @@ function renderReports() {
 
     const netProfit = periodIncome - periodExpense;
 
+    // Ganancia real del periodo (ventas menos costo de la mercadería vendida)
+    const salesProfit = calcSalesProfit(filteredTx);
+
     // Encontrar producto más vendido
     let topProductId = null;
     let topProductQty = 0;
@@ -1368,17 +1417,207 @@ function renderReports() {
         profitEl.className = "text-success";
     }
 
+    // Ganancia neta de ventas (descontando solo el costo del producto)
+    const salesProfitEl = document.getElementById("report-sales-profit");
+    const salesProfitDetailEl = document.getElementById("report-sales-profit-detail");
+    if (salesProfitEl) {
+        salesProfitEl.textContent = formatCurrency(salesProfit.profit);
+        salesProfitEl.className = salesProfit.profit < 0 ? "text-danger" : "text-success";
+    }
+    if (salesProfitDetailEl) {
+        if (salesProfit.revenue === 0) {
+            salesProfitDetailEl.textContent = "Sin ventas registradas en el periodo";
+        } else {
+            let detail = `Ventas ${formatCurrency(salesProfit.revenue)} − Costo ${formatCurrency(salesProfit.cost)} (${salesProfit.marginPct.toFixed(1)}%)`;
+            if (salesProfit.unlinkedRevenue > 0) {
+                detail += ` · ${formatCurrency(salesProfit.unlinkedRevenue)} sin producto vinculado`;
+            }
+            salesProfitDetailEl.textContent = detail;
+        }
+    }
+
     document.getElementById("report-top-product").textContent = topProductName;
     document.getElementById("report-top-product-qty").textContent = topProductId ? `${topProductQty} unidades vendidas` : '0 unidades';
 
     // 3. Renderizar Tabla de Resumen Mensual (Última sección de reportes)
     renderReportsSummaryTable();
 
-    // 4. Renderizar Gráficos de Reportes
+    // 4. Renderizar Reporte de Préstamos e Historial de Clientes
+    renderLoansReport();
+
+    // 5. Renderizar Gráficos de Reportes
     renderReportsCharts(filteredTx);
 
-    // Registrar escuchadores de periodo
+    // Registrar escuchadores de periodo y módulos
     setupPeriodSelectors();
+    setupReportModuleSelectors();
+}
+
+function setupReportModuleSelectors() {
+    const buttons = document.querySelectorAll("#report-module-selector .btn");
+    buttons.forEach(btn => {
+        btn.removeEventListener("click", handleReportModuleChange);
+        btn.addEventListener("click", handleReportModuleChange);
+    });
+}
+
+function handleReportModuleChange(e) {
+    const targetBtn = e.currentTarget;
+    const moduleType = targetBtn.getAttribute("data-module");
+
+    const buttons = document.querySelectorAll("#report-module-selector .btn");
+    buttons.forEach(b => b.classList.remove("active"));
+    targetBtn.classList.add("active");
+
+    const salesModule = document.getElementById("reports-sales-module");
+    const loansModule = document.getElementById("reports-loans-module");
+
+    if (moduleType === "sales") {
+        if (salesModule) salesModule.style.display = "flex";
+        if (loansModule) loansModule.style.display = "none";
+    } else {
+        if (salesModule) salesModule.style.display = "none";
+        if (loansModule) loansModule.style.display = "grid";
+    }
+}
+
+function renderLoansReport() {
+    if (!appState.loans) appState.loans = [];
+
+    let totalInterestProfit = 0;
+    let totalPendingCapital = 0;
+    let paidCount = 0;
+    let renewedCount = 0;
+
+    appState.loans.forEach(loan => {
+        if (loan.total > 0) {
+            const interestProportion = (loan.total - loan.amount) / loan.total;
+            totalInterestProfit += (loan.paid * interestProportion);
+        }
+
+        if (loan.status === 'paid') paidCount++;
+        else if (loan.status === 'renewed') renewedCount++;
+        else if (loan.status === 'active') {
+            totalPendingCapital += (loan.total - loan.paid);
+        }
+    });
+
+    const elInterest = document.getElementById("report-loan-total-interest");
+    const elSummary = document.getElementById("report-loan-status-summary");
+    const elPending = document.getElementById("report-loan-pending-capital");
+
+    if (elInterest) elInterest.textContent = formatCurrency(totalInterestProfit);
+    if (elSummary) elSummary.textContent = `${paidCount} pagados / ${renewedCount} renovados`;
+    if (elPending) elPending.textContent = formatCurrency(totalPendingCapital);
+
+    // Llenar el selector de clientes para ver su historial
+    const selectClient = document.getElementById("report-loan-client-select");
+    if (selectClient) {
+        const clientSet = new Set();
+        appState.loans.forEach(l => {
+            if (l.client) clientSet.add(l.client.trim());
+        });
+        const clients = Array.from(clientSet).sort();
+
+        const currentVal = selectClient.value;
+        selectClient.innerHTML = '<option value="" style="background: var(--bg-card); color: var(--text-main);">-- Seleccionar cliente para ver historial --</option>';
+        clients.forEach(c => {
+            const selected = (c === currentVal) ? 'selected' : '';
+            selectClient.innerHTML += `<option value="${c}" ${selected} style="background: var(--bg-card); color: var(--text-main);">${c}</option>`;
+        });
+
+        selectClient.removeEventListener("change", handleReportClientChange);
+        selectClient.addEventListener("change", handleReportClientChange);
+
+        if (currentVal && clients.includes(currentVal)) {
+            renderReportClientHistory(currentVal);
+        } else {
+            const details = document.getElementById("report-loan-client-details");
+            if (details) details.style.display = "none";
+        }
+    }
+}
+
+function handleReportClientChange(e) {
+    const clientName = e.target.value;
+    renderReportClientHistory(clientName);
+}
+
+function renderReportClientHistory(clientName) {
+    const detailsContainer = document.getElementById("report-loan-client-details");
+    if (!clientName) {
+        if (detailsContainer) detailsContainer.style.display = "none";
+        return;
+    }
+
+    const clientLoans = appState.loans.filter(l => l.client.toLowerCase() === clientName.toLowerCase());
+    if (clientLoans.length === 0) {
+        if (detailsContainer) detailsContainer.style.display = "none";
+        return;
+    }
+
+    detailsContainer.style.display = "block";
+    document.getElementById("report-client-name-title").textContent = `Historial Completo: ${clientName}`;
+
+    const totalLoans = clientLoans.length;
+    const paidLoans = clientLoans.filter(l => l.status === 'paid').length;
+    const activeLoans = clientLoans.filter(l => l.status === 'active').length;
+    const renewedLoans = clientLoans.filter(l => l.status === 'renewed').length;
+
+    let totalInvested = 0;
+    let totalCollected = 0;
+    clientLoans.forEach(l => {
+        totalInvested += l.amount;
+        totalCollected += l.paid;
+    });
+
+    document.getElementById("report-client-badges").innerHTML = `
+        <span class="badge badge-info">Total Préstamos: ${totalLoans}</span>
+        <span class="badge badge-success">Pagados: ${paidLoans}</span>
+        <span class="badge badge-warning">Activos: ${activeLoans}</span>
+        ${renewedLoans > 0 ? `<span class="badge badge-secondary">Renovados: ${renewedLoans}</span>` : ''}
+        <span class="text-muted ml-auto" style="align-self:center;">Otorgado: <strong>${formatCurrency(totalInvested)}</strong> | Recaudado: <strong>${formatCurrency(totalCollected)}</strong></span>
+    `;
+
+    const tbody = document.getElementById("report-client-history-tbody");
+    tbody.innerHTML = "";
+
+    const sorted = [...clientLoans].sort((a, b) => new Date(b.date + 'T00:00:00') - new Date(a.date + 'T00:00:00'));
+    sorted.forEach(loan => {
+        const quota = loan.total / loan.days;
+        const freq = loan.frequency || 'diaria';
+
+        let freqLabel = " / día";
+        if (freq === 'semanal') freqLabel = " / sem";
+        if (freq === 'quincenal') freqLabel = " / quin";
+        if (freq === 'mensual') freqLabel = " / mes";
+
+        let statusBadge = '';
+        if (loan.status === 'paid') statusBadge = `<span class="badge badge-success">Pagado</span>`;
+        else if (loan.status === 'renewed') statusBadge = `<span class="badge badge-info">Renovado</span>`;
+        else statusBadge = `<span class="badge badge-warning">Activo</span>`;
+
+        let paymentsHTML = '<span class="text-muted">Sin abonos</span>';
+        if (loan.payments && loan.payments.length > 0) {
+            paymentsHTML = `<details><summary style="cursor:pointer; color:var(--primary); font-weight:500;">${loan.payments.length} abono(s)</summary><ul style="padding-left:14px; margin-top:4px; font-size:0.8rem; text-align:left;" class="text-muted">` +
+                loan.payments.map(p => `<li>${p.date.split('-').reverse().join('/')}: <strong>${formatCurrency(p.amount)}</strong></li>`).join('') +
+                `</ul></details>`;
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${loan.date.split('-').reverse().join('/')}</td>
+            <td class="text-right text-danger">${formatCurrency(loan.amount)}</td>
+            <td class="text-right">${formatCurrency(loan.total)}</td>
+            <td class="text-right text-success">${formatCurrency(loan.paid)}</td>
+            <td class="text-center">${formatCurrency(quota)} <small class="text-muted">${freqLabel}</small></td>
+            <td class="text-center">${statusBadge}</td>
+            <td class="text-center">${paymentsHTML}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    lucide.createIcons();
 }
 
 function setupPeriodSelectors() {
@@ -1407,10 +1646,11 @@ function renderReportsSummaryTable() {
     appState.transactions.forEach(t => {
         const mKey = t.date.substring(0, 7); // "YYYY-MM"
         if (!monthlyData[mKey]) {
-            monthlyData[mKey] = { ingresos: 0, gastos: 0 };
+            monthlyData[mKey] = { ingresos: 0, gastos: 0, ganancia: 0 };
         }
         if (t.type === "ingreso") {
             monthlyData[mKey].ingresos += t.value;
+            monthlyData[mKey].ganancia += t.value - getSaleCost(t);
         } else {
             monthlyData[mKey].gastos += t.value;
         }
@@ -1419,7 +1659,7 @@ function renderReportsSummaryTable() {
     const sortedMonths = Object.keys(monthlyData).sort().reverse(); // Recientes primero
 
     if (sortedMonths.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Sin datos suficientes.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Sin datos suficientes.</td></tr>`;
         return;
     }
 
@@ -1433,6 +1673,7 @@ function renderReportsSummaryTable() {
             <td style="text-transform: capitalize; font-weight: 600;" class="product-cell">${getMonthNameSpanish(m + '-01')}</td>
             <td class="text-right text-success" data-label="Ingresos">${formatCurrency(data.ingresos)}</td>
             <td class="text-right text-danger" data-label="Gastos">${formatCurrency(data.gastos)}</td>
+            <td class="text-right font-semibold ${data.ganancia >= 0 ? 'text-success' : 'text-danger'}" data-label="Gan. Neta">${formatCurrency(data.ganancia)}</td>
             <td class="text-right font-semibold ${isProfit ? 'text-success' : 'text-danger'}" data-label="Resultado">${formatCurrency(res)}</td>
             <td class="text-center" data-label="Estado">
                 <span class="badge ${isProfit ? 'badge-success' : 'badge-danger'}">
@@ -1775,31 +2016,39 @@ function requirePassword(actionLabel = "esta acción") {
             modal.className = "modal";
             modal.innerHTML = `
                 <div class="modal-content" style="max-width:400px">
-                    <div class="modal-header">
-                        <h3 id="pw-modal-title"><i data-lucide="shield-alert"></i> Verificación requerida</h3>
-                        <button class="btn-icon" id="btn-pw-close"><i data-lucide="x"></i></button>
-                    </div>
-                    <div class="modal-body">
-                        <p id="pw-modal-desc" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px;line-height:1.5"></p>
-                        <div class="login-input-wrapper">
-                            <i data-lucide="lock" class="input-icon"></i>
-                            <input type="password" id="pw-modal-input" placeholder="Ingresá la contraseña del sistema"
-                                autocomplete="off"
-                                style="width:100%;padding:12px 44px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-main);font-family:var(--font-primary);font-size:0.95rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s;">
-                            <button class="btn-toggle-pass" id="btn-pw-toggle" type="button">
-                                <i data-lucide="eye"></i>
+                    <form id="pw-modal-form" onsubmit="event.preventDefault(); document.getElementById('btn-pw-confirm').click();">
+                        <div class="modal-header">
+                            <h3 id="pw-modal-title"><i data-lucide="shield-alert"></i> Verificación requerida</h3>
+                            <button type="button" class="btn-icon" id="btn-pw-close"><i data-lucide="x"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <p id="pw-modal-desc" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px;line-height:1.5"></p>
+                            
+                            <!-- Campo trampa para el autocompletado de usuario -->
+                            <div style="position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; top:-999px;">
+                                <input type="text" name="fakeusernameremembered" tabindex="-1" autocomplete="username">
+                            </div>
+
+                            <div class="login-input-wrapper">
+                                <i data-lucide="lock" class="input-icon"></i>
+                                <input type="password" id="pw-modal-input" placeholder="Ingresá la contraseña del sistema"
+                                    autocomplete="current-password"
+                                    style="width:100%;padding:12px 44px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-main);font-family:var(--font-primary);font-size:0.95rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s;">
+                                <button class="btn-toggle-pass" id="btn-pw-toggle" type="button">
+                                    <i data-lucide="eye"></i>
+                                </button>
+                            </div>
+                            <p id="pw-modal-error" style="display:none;color:var(--danger);font-size:0.82rem;margin-top:10px;font-weight:500;">
+                                ⚠️ Contraseña incorrecta. Intentá de nuevo.
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" id="btn-pw-cancel">Cancelar</button>
+                            <button type="button" class="btn btn-danger" id="btn-pw-confirm">
+                                <i data-lucide="unlock"></i> Confirmar
                             </button>
                         </div>
-                        <p id="pw-modal-error" style="display:none;color:var(--danger);font-size:0.82rem;margin-top:10px;font-weight:500;">
-                            ❌ Contraseña incorrecta. Intentá de nuevo.
-                        </p>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" id="btn-pw-cancel">Cancelar</button>
-                        <button class="btn btn-danger" id="btn-pw-confirm">
-                            <i data-lucide="unlock"></i> Confirmar
-                        </button>
-                    </div>
+                    </form>
                 </div>`;
             document.body.appendChild(modal);
         }
@@ -2094,21 +2343,31 @@ function setupLoanHandlers() {
     const totalInput = document.getElementById("loan-total");
     const quotaInput = document.getElementById("loan-quota");
 
+    const frequencyInput = document.getElementById("loan-frequency");
+
     function calculateLoan() {
         const amount = parseFloat(amountInput.value) || 0;
         const interest = parseFloat(interestInput.value) || 0;
         const days = parseInt(daysInput.value) || 1;
+        const frequency = frequencyInput ? frequencyInput.value : 'diaria';
         
         const total = amount + (amount * (interest / 100));
         const quota = total / days;
         
         totalInput.value = total.toFixed(2);
-        quotaInput.value = formatCurrency(quota) + " / día";
+        
+        let freqLabel = " / día";
+        if (frequency === 'semanal') freqLabel = " / sem";
+        if (frequency === 'quincenal') freqLabel = " / quin";
+        if (frequency === 'mensual') freqLabel = " / mes";
+
+        quotaInput.value = formatCurrency(quota) + freqLabel;
     }
 
     if (amountInput) amountInput.addEventListener("input", calculateLoan);
     if (interestInput) interestInput.addEventListener("input", calculateLoan);
     if (daysInput) daysInput.addEventListener("input", calculateLoan);
+    if (frequencyInput) frequencyInput.addEventListener("change", calculateLoan);
 
     // Guardar Préstamo
     const formLoan = document.getElementById("form-loan");
@@ -2122,6 +2381,8 @@ function setupLoanHandlers() {
             const total = parseFloat(totalInput.value);
             const days = parseInt(daysInput.value);
             
+            const frequency = document.getElementById("loan-frequency") ? document.getElementById("loan-frequency").value : 'diaria';
+            
             const newLoan = {
                 id: generateId("loan"),
                 date: date,
@@ -2130,6 +2391,7 @@ function setupLoanHandlers() {
                 interest: interest,
                 total: total,
                 days: days,
+                frequency: frequency,
                 paid: 0,
                 status: 'active'
             };
@@ -2156,6 +2418,13 @@ function setupLoanHandlers() {
             const loan = appState.loans.find(l => l.id === loanId);
             if (!loan) return;
 
+            if (!loan.payments) loan.payments = [];
+            loan.payments.push({
+                id: generateId("pay"),
+                date: date,
+                amount: amount
+            });
+
             loan.paid += amount;
             if (loan.paid >= loan.total) {
                 loan.status = 'paid';
@@ -2166,6 +2435,106 @@ function setupLoanHandlers() {
             renderLoans();
             refreshActiveView();
             showToast("Pago registrado correctamente", "success");
+        });
+    }
+
+    // Renovar Préstamo - cálculos en tiempo real
+    const renewNewCapital = document.getElementById("renew-new-capital");
+    const renewIncludePending = document.getElementById("renew-include-pending");
+    const renewInterest = document.getElementById("renew-interest");
+    const renewDays = document.getElementById("renew-days");
+    const renewFrequency = document.getElementById("renew-frequency");
+
+    function calculateRenewLoan() {
+        const oldPending = parseFloat(document.getElementById("renew-old-pending").value) || 0;
+        const includePending = renewIncludePending.checked;
+        const newCapital = parseFloat(renewNewCapital.value) || 0;
+
+        const baseCapital = newCapital + (includePending ? oldPending : 0);
+        document.getElementById("renew-total-capital").value = baseCapital.toFixed(2);
+
+        const interest = parseFloat(renewInterest.value) || 0;
+        const days = parseInt(renewDays.value) || 1;
+        const frequency = renewFrequency ? renewFrequency.value : 'diaria';
+
+        const total = baseCapital + (baseCapital * (interest / 100));
+        const quota = total / days;
+
+        document.getElementById("renew-total").value = total.toFixed(2);
+
+        let freqLabel = " / día";
+        if (frequency === 'semanal') freqLabel = " / sem";
+        if (frequency === 'quincenal') freqLabel = " / quin";
+        if (frequency === 'mensual') freqLabel = " / mes";
+
+        document.getElementById("renew-quota").value = formatCurrency(quota) + freqLabel;
+    }
+
+    if (renewNewCapital) renewNewCapital.addEventListener("input", calculateRenewLoan);
+    if (renewIncludePending) renewIncludePending.addEventListener("change", calculateRenewLoan);
+    if (renewInterest) renewInterest.addEventListener("input", calculateRenewLoan);
+    if (renewDays) renewDays.addEventListener("input", calculateRenewLoan);
+    if (renewFrequency) renewFrequency.addEventListener("change", calculateRenewLoan);
+
+    // Form Submit Renovación
+    const formRenew = document.getElementById("form-renew-loan");
+    if (formRenew) {
+        formRenew.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const oldLoanId = document.getElementById("renew-old-loan-id").value;
+            const oldLoan = appState.loans.find(l => l.id === oldLoanId);
+            if (!oldLoan) return;
+
+            const date = document.getElementById("renew-date").value;
+            const newCapital = parseFloat(renewNewCapital.value) || 0;
+            const totalCapital = parseFloat(document.getElementById("renew-total-capital").value) || 0;
+            const interest = parseFloat(renewInterest.value) || 0;
+            const totalToCollect = parseFloat(document.getElementById("renew-total").value) || 0;
+            const days = parseInt(renewDays.value) || 1;
+            const frequency = renewFrequency.value;
+
+            // Marcar anterior como renovado
+            oldLoan.status = 'renewed';
+
+            // Crear nuevo préstamo
+            const newLoan = {
+                id: generateId("loan"),
+                date: date,
+                client: oldLoan.client,
+                amount: totalCapital,
+                interest: interest,
+                total: totalToCollect,
+                days: days,
+                frequency: frequency,
+                paid: 0,
+                status: 'active',
+                renewedFromId: oldLoan.id,
+                payments: []
+            };
+
+            oldLoan.renewedToId = newLoan.id;
+
+            if (!appState.loans) appState.loans = [];
+            appState.loans.push(newLoan);
+
+            // Registrar la transacción de la nueva entrega de capital si hubo dinero nuevo entregado
+            if (newCapital > 0) {
+                appState.transactions.push({
+                    id: generateId("tx"),
+                    date: date,
+                    type: "egreso",
+                    description: `RENOVACION DE PRESTAMO (NUEVO CAPITAL): ${oldLoan.client}`,
+                    category: "Otros Gastos",
+                    value: newCapital,
+                    loanId: newLoan.id
+                });
+            }
+
+            saveState();
+            closeModal("renew-loan");
+            renderLoans();
+            refreshActiveView();
+            showToast("Préstamo renovado con éxito", "success");
         });
     }
 
@@ -2187,10 +2556,137 @@ function openPaymentModal(loanId) {
     document.getElementById("payment-date").value = new Date().toISOString().substring(0, 10);
     
     const quota = loan.total / loan.days;
-    const remaining = loan.total - loan.paid;
-    document.getElementById("payment-amount").value = Math.min(quota, remaining).toFixed(2);
+    const remaining = Math.max(0, loan.total - loan.paid);
+
+    document.getElementById("payment-current-pending").value = remaining;
+    document.getElementById("payment-regular-quota").value = quota;
+    document.getElementById("payment-pending-display").value = formatCurrency(remaining);
     
+    const defaultPayment = Math.min(quota, remaining);
+    const amountInput = document.getElementById("payment-amount");
+    amountInput.value = defaultPayment.toFixed(2);
+    
+    amountInput.removeEventListener("input", updatePaymentCalculations);
+    amountInput.addEventListener("input", updatePaymentCalculations);
+
+    updatePaymentCalculations();
     openModal("payment");
+}
+
+function updatePaymentCalculations() {
+    const currentPending = parseFloat(document.getElementById("payment-current-pending").value) || 0;
+    const regularQuota = parseFloat(document.getElementById("payment-regular-quota").value) || 1;
+    const paymentAmount = parseFloat(document.getElementById("payment-amount").value) || 0;
+
+    const newPending = Math.max(0, currentPending - paymentAmount);
+    const newPendingEl = document.getElementById("payment-new-pending-display");
+    if (newPendingEl) {
+        newPendingEl.value = formatCurrency(newPending);
+        newPendingEl.style.color = newPending <= 0 ? "var(--success)" : "var(--text-main)";
+    }
+
+    const infoBox = document.getElementById("payment-info-box");
+    if (infoBox) {
+        if (newPending <= 0) {
+            infoBox.innerHTML = `<span class="text-success font-bold">🎉 ¡Con este abono el préstamo quedará COMPLETAMENTE PAGADO Y CANCELADO!</span>`;
+        } else {
+            const remQuotas = Math.ceil(newPending / regularQuota);
+            infoBox.innerHTML = `Cuota habitual: <strong>${formatCurrency(regularQuota)}</strong> | Saldo restante tras este pago: <strong class="text-warning">${formatCurrency(newPending)}</strong> (aprox. <strong>${remQuotas} cuota(s)</strong> restantes).`;
+        }
+    }
+}
+
+function openRenewModal(loanId) {
+    const loan = appState.loans.find(l => l.id === loanId);
+    if (!loan) return;
+
+    document.getElementById("form-renew-loan").reset();
+    document.getElementById("renew-old-loan-id").value = loan.id;
+    document.getElementById("renew-client-name").textContent = loan.client;
+    document.getElementById("renew-date").value = new Date().toISOString().substring(0, 10);
+    
+    const pending = Math.max(0, loan.total - loan.paid);
+    document.getElementById("renew-old-pending").value = pending.toFixed(2);
+    document.getElementById("renew-new-capital").value = "0.00";
+    document.getElementById("renew-include-pending").checked = true;
+    document.getElementById("renew-interest").value = loan.interest || 20;
+    document.getElementById("renew-days").value = loan.days || 24;
+    document.getElementById("renew-frequency").value = loan.frequency || 'diaria';
+
+    const event = new Event('input');
+    document.getElementById("renew-new-capital").dispatchEvent(event);
+
+    openModal("renew-loan");
+}
+
+function openClientHistoryModal(clientName) {
+    const clientLoans = appState.loans.filter(l => l.client.toLowerCase() === clientName.toLowerCase());
+    
+    document.getElementById("history-client-name").textContent = clientName;
+    
+    const totalLoans = clientLoans.length;
+    const paidLoans = clientLoans.filter(l => l.status === 'paid').length;
+    const activeLoans = clientLoans.filter(l => l.status === 'active').length;
+    const renewedLoans = clientLoans.filter(l => l.status === 'renewed').length;
+    
+    let totalInvested = 0;
+    let totalCollected = 0;
+    clientLoans.forEach(l => {
+        totalInvested += l.amount;
+        totalCollected += l.paid;
+    });
+
+    document.getElementById("history-client-stats").innerHTML = `
+        <span class="badge badge-info">Total Préstamos: ${totalLoans}</span>
+        <span class="badge badge-success">Pagados: ${paidLoans}</span>
+        <span class="badge badge-warning">Activos: ${activeLoans}</span>
+        ${renewedLoans > 0 ? `<span class="badge badge-secondary">Renovados: ${renewedLoans}</span>` : ''}
+        <span class="text-muted ml-auto">Otorgado: <strong>${formatCurrency(totalInvested)}</strong> | Recaudado: <strong>${formatCurrency(totalCollected)}</strong></span>
+    `;
+
+    const tbody = document.getElementById("history-loans-tbody");
+    tbody.innerHTML = "";
+
+    if (clientLoans.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No hay préstamos registrados para este cliente.</td></tr>`;
+    } else {
+        const sorted = [...clientLoans].sort((a, b) => new Date(b.date + 'T00:00:00') - new Date(a.date + 'T00:00:00'));
+        sorted.forEach(loan => {
+            const quota = loan.total / loan.days;
+            const freq = loan.frequency || 'diaria';
+
+            let freqLabel = " / día";
+            if (freq === 'semanal') freqLabel = " / sem";
+            if (freq === 'quincenal') freqLabel = " / quin";
+            if (freq === 'mensual') freqLabel = " / mes";
+
+            let statusBadge = '';
+            if (loan.status === 'paid') statusBadge = `<span class="badge badge-success">Pagado</span>`;
+            else if (loan.status === 'renewed') statusBadge = `<span class="badge badge-info">Renovado</span>`;
+            else statusBadge = `<span class="badge badge-warning">Activo</span>`;
+
+            let paymentsHTML = '<span class="text-muted">Sin abonos</span>';
+            if (loan.payments && loan.payments.length > 0) {
+                paymentsHTML = `<details><summary style="cursor:pointer; color:var(--primary); font-weight:500;">${loan.payments.length} abono(s)</summary><ul style="padding-left:14px; margin-top:4px; font-size:0.8rem; text-align:left;" class="text-muted">` +
+                    loan.payments.map(p => `<li>${p.date.split('-').reverse().join('/')}: <strong>${formatCurrency(p.amount)}</strong></li>`).join('') +
+                    `</ul></details>`;
+            }
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${loan.date.split('-').reverse().join('/')}</td>
+                <td class="text-right text-danger">${formatCurrency(loan.amount)}</td>
+                <td class="text-right">${formatCurrency(loan.total)}</td>
+                <td class="text-right text-success">${formatCurrency(loan.paid)}</td>
+                <td class="text-center">${formatCurrency(quota)} <small class="text-muted">${freqLabel}</small></td>
+                <td class="text-center">${statusBadge}</td>
+                <td class="text-center">${paymentsHTML}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    openModal("loan-history");
 }
 
 function renderLoans() {
@@ -2204,10 +2700,18 @@ function renderLoans() {
     let totalToCollect = 0;
     let totalCollected = 0;
     let totalPending = 0;
+    let totalInterestProfit = 0;
     let activeLoansCount = 0;
 
     appState.loans.forEach(loan => {
         totalCollected += loan.paid;
+        
+        // Proporción de ganancia neta por intereses en lo recaudado
+        if (loan.total > 0) {
+            const interestProportion = (loan.total - loan.amount) / loan.total;
+            totalInterestProfit += (loan.paid * interestProportion);
+        }
+
         if (loan.status === 'active') {
             totalCapital += loan.amount;
             totalToCollect += loan.total;
@@ -2220,12 +2724,14 @@ function renderLoans() {
     const kpiCapitalSub = document.getElementById("loan-kpi-capital-sub");
     const kpiTotal = document.getElementById("loan-kpi-total");
     const kpiCollected = document.getElementById("loan-kpi-collected");
+    const kpiInterest = document.getElementById("loan-kpi-interest");
     const kpiPending = document.getElementById("loan-kpi-pending");
 
     if (kpiCapital) kpiCapital.textContent = formatCurrency(totalCapital);
     if (kpiCapitalSub) kpiCapitalSub.textContent = `${activeLoansCount} préstamo${activeLoansCount !== 1 ? 's' : ''} activo${activeLoansCount !== 1 ? 's' : ''}`;
     if (kpiTotal) kpiTotal.textContent = formatCurrency(totalToCollect);
     if (kpiCollected) kpiCollected.textContent = formatCurrency(totalCollected);
+    if (kpiInterest) kpiInterest.textContent = formatCurrency(totalInterestProfit);
     if (kpiPending) kpiPending.textContent = formatCurrency(totalPending);
 
     const search = (document.getElementById("loan-search").value || "").toLowerCase();
@@ -2247,10 +2753,18 @@ function renderLoans() {
     filtered.forEach(loan => {
         const remaining = loan.total - loan.paid;
         const quota = loan.total / loan.days;
+        const freq = loan.frequency || 'diaria';
+        
+        let freqLabel = " / día";
+        if (freq === 'semanal') freqLabel = " / sem";
+        if (freq === 'quincenal') freqLabel = " / quin";
+        if (freq === 'mensual') freqLabel = " / mes";
         
         let statusBadge = '';
         if (loan.status === 'paid') {
             statusBadge = `<span class="badge badge-success">Pagado</span>`;
+        } else if (loan.status === 'renewed') {
+            statusBadge = `<span class="badge badge-info">Renovado</span>`;
         } else {
             statusBadge = `<span class="badge badge-warning">Activo</span>`;
         }
@@ -2262,13 +2776,31 @@ function renderLoans() {
             <td class="text-right text-danger">${formatCurrency(loan.amount)}</td>
             <td class="text-right">${formatCurrency(loan.total)}</td>
             <td class="text-right fw-bold text-warning">${formatCurrency(remaining)}</td>
-            <td class="text-center">${formatCurrency(quota)}</td>
+            <td class="text-center">${formatCurrency(quota)} <small class="text-muted">${freqLabel}</small></td>
             <td class="text-center">${statusBadge}</td>
             <td class="text-center">
-                ${loan.status !== 'paid' ? `<button class="btn-icon btn-pay text-success" title="Registrar Pago" data-id="${loan.id}"><i data-lucide="dollar-sign"></i></button>` : '-'}
+                <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                    ${loan.status === 'active' ? `<button type="button" class="btn btn-sm btn-primary btn-renew-loan" title="Renovar préstamo" data-id="${loan.id}"><i data-lucide="refresh-cw"></i> Renovar</button>` : ''}
+                    ${loan.status === 'active' ? `<button type="button" class="btn btn-sm btn-success btn-pay" title="Registrar cobro" data-id="${loan.id}"><i data-lucide="dollar-sign"></i> Cobrar</button>` : ''}
+                    <button type="button" class="btn btn-sm btn-danger btn-delete-loan" title="Eliminar préstamo" data-id="${loan.id}"><i data-lucide="trash-2"></i></button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
+    });
+
+    document.querySelectorAll(".btn-history-loan").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const client = e.currentTarget.getAttribute("data-client");
+            openClientHistoryModal(client);
+        });
+    });
+
+    document.querySelectorAll(".btn-renew-loan").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const id = e.currentTarget.getAttribute("data-id");
+            openRenewModal(id);
+        });
     });
 
     document.querySelectorAll(".btn-pay").forEach(btn => {
@@ -2278,6 +2810,37 @@ function renderLoans() {
         });
     });
 
+    document.querySelectorAll(".btn-delete-loan").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const id = e.currentTarget.getAttribute("data-id");
+            deleteLoan(id);
+        });
+    });
+
     lucide.createIcons();
 }
+
+async function deleteLoan(loanId) {
+    if (!await requirePassword("eliminar este préstamo")) return;
+    
+    if (await showConfirm("Eliminar Préstamo", "¿Estás seguro que deseas eliminar este préstamo? Esto revertirá su estado y eliminará del historial de caja el registro del préstamo otorgado y los cobros realizados.", "Eliminar", "Cancelar")) {
+        const loan = appState.loans.find(l => l.id === loanId);
+        if (!loan) return;
+        
+        // Eliminar transacciones asociadas
+        appState.transactions = appState.transactions.filter(tx => {
+            if (tx.loanId === loanId) return false;
+            if (!tx.loanId && (tx.description === `PRESTAMO OTORGADO: ${loan.client}` || tx.description === `COBRO DE PRESTAMO: ${loan.client}`)) {
+                return false;
+            }
+            return true;
+        });
+
+        appState.loans = appState.loans.filter(l => l.id !== loanId);
+        saveState();
+        renderLoans();
+        showToast("Préstamo eliminado con éxito", "info");
+    }
+}
+
 

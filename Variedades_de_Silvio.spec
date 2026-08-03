@@ -5,7 +5,7 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[],
-    datas=[('index.html', '.'), ('app.js', '.'), ('styles.css', '.')],
+    datas=[('index.html', '.'), ('app.js', '.'), ('styles.css', '.'), ('stitch_logo.png', '.'), ('bsc.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='stitch_logo.ico'
 )

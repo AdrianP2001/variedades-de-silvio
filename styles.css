@@ -443,6 +443,29 @@ input:checked + .slider:before {
     color: #fff;
 }
 
+.btn-success {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.btn-success:hover {
+    background-color: var(--success);
+    color: #fff;
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.btn-sm i {
+    width: 14px;
+    height: 14px;
+}
+
 .btn-pill {
     padding: 8px 20px;
     border-radius: var(--radius-pill);
@@ -470,7 +493,22 @@ input:checked + .slider:before {
 }
 .btn-text:hover {
     color: var(--primary-hover);
-    text-decoration: underline;
+}
+
+/* Fix select option dropdown visibility in dark and light themes */
+select option {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+}
+
+body.dark-theme select option {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+}
+
+body:not(.dark-theme) select option {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
 }
 
 .btn-close {
