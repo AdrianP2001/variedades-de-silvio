@@ -1595,7 +1595,7 @@ function calcSalesProfit(txList) {
 function renderReports() {
     // 1. Obtener Periodo Activo
     const activePeriodBtn = document.querySelector(".period-selectors .btn.active");
-    const period = activePeriodBtn ? activePeriodBtn.getAttribute("data-period") : "anual";
+    const period = activePeriodBtn ? activePeriodBtn.getAttribute("data-period") : "diario";
 
     // Filtrar transacciones del periodo
     let filteredTx = [];

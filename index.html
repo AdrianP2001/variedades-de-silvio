@@ -445,19 +445,19 @@
                                 </button>
                             </div>
                             <div class="period-selectors">
-                                <button class="btn btn-pill" data-period="diario">Hoy</button>
+                                <button class="btn btn-pill active" data-period="diario">Hoy (Diario)</button>
                                 <button class="btn btn-pill" data-period="semanal">Semanal (7 Días)</button>
                                 <button class="btn btn-pill" data-period="mensual">Mensual</button>
-                                <button class="btn btn-pill active" data-period="anual">Anual</button>
+                                <button class="btn btn-pill" data-period="anual">Anual</button>
                             </div>
                         </div>
                         <div class="report-summary-text" id="report-period-info" style="margin-top: 12px;">
-                            Visualizando balance consolidado del año 2026.
+                            Visualizando movimientos de hoy.
                         </div>
                     </div>
 
                     <!-- MÓDULO 1: VENTAS E INVENTARIO -->
-                    <div id="reports-sales-module" class="app-view active" style="gap: 32px;">
+                    <div id="reports-sales-module" class="report-submodule active" style="gap: 32px;">
                         <!-- Métricas de Reportes -->
                         <div class="reports-grid-top">
                             <div class="report-metric-card">
@@ -539,7 +539,7 @@
                     </div>
 
                     <!-- MÓDULO 2: PRÉSTAMOS Y CLIENTES -->
-                    <div id="reports-loans-module" class="app-view" style="display: none; gap: 32px;">
+                    <div id="reports-loans-module" class="report-submodule" style="display: none; gap: 32px;">
                         <div class="dashboard-card" style="grid-column: 1 / -1;">
                             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                                 <h3><i data-lucide="hand-coins"></i> Reporte de Préstamos y Puntualidad de Clientes</h3>

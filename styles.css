@@ -571,6 +571,12 @@ body:not(.dark-theme) select option {
     gap: 32px;
 }
 
+.report-submodule {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
