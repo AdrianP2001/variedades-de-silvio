@@ -678,26 +678,7 @@
 
                 <!-- VISTA 6: PRÉSTAMOS Y COBROS -->
                 <section id="view-loans" class="app-view">
-                    <div class="inventory-controls-container">
-                        <div class="search-box">
-                            <i data-lucide="search"></i>
-                            <input type="text" id="loan-search" placeholder="Buscar cliente por nombre..." autocomplete="off" data-lpignore="true">
-                        </div>
-                        <div class="filters-box">
-                            <select id="loan-filter-status" class="form-select">
-                                <option value="all">Todos los Préstamos</option>
-                                <option value="active">Activos / Pendientes</option>
-                                <option value="paid">Pagados</option>
-                                <option value="renewed">Renovados</option>
-                            </select>
-                            <button class="btn btn-primary btn-icon-text" id="btn-new-loan">
-                                <i data-lucide="plus-circle"></i>
-                                <span>Registrar Préstamo</span>
-                            </button>
-                    </div>
-                </div>
-
-                <!-- GRIDS DE KPI PARA PRÉSTAMOS -->
+                    <!-- GRIDS DE KPI PARA PRÉSTAMOS -->
                     <div class="kpi-grid" style="margin-bottom: 24px;">
                         <div class="kpi-card card-expense">
                             <div class="kpi-icon">
@@ -751,9 +732,36 @@
                         </div>
                     </div>
 
+                    <!-- BARRA DE BÚSQUEDA Y FILTROS ESTILO CAJA -->
+                    <div class="inventory-controls-container">
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="loan-search" placeholder="Buscar cliente por nombre..." autocomplete="off" data-lpignore="true">
+                        </div>
+                        <div class="filters-box">
+                            <select id="loan-filter-status" class="form-select">
+                                <option value="all">Todos los Préstamos</option>
+                                <option value="active">Activos / Pendientes</option>
+                                <option value="paid">Pagados</option>
+                                <option value="renewed">Renovados</option>
+                            </select>
+                            <select id="loan-filter-frequency" class="form-select">
+                                <option value="all">Todas las Frecuencias</option>
+                                <option value="diaria">Diaria</option>
+                                <option value="semanal">Semanal</option>
+                                <option value="quincenal">Quincenal</option>
+                                <option value="mensual">Mensual</option>
+                            </select>
+                            <button class="btn btn-primary btn-icon-text" id="btn-new-loan">
+                                <i data-lucide="plus-circle"></i>
+                                <span>Registrar Préstamo</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="dashboard-card">
                         <div class="card-header">
-                            <h3>Cobros Diarios</h3>
+                            <h3>Gestión de Préstamos y Cobros Diarios</h3>
                         </div>
                         <div class="table-container">
                             <table class="data-table" id="loans-table">

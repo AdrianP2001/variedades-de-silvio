@@ -581,8 +581,8 @@ body:not(.dark-theme) select option {
    ========================================== */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
 }
 
 .kpi-card {
@@ -590,11 +590,13 @@ body:not(.dark-theme) select option {
     backdrop-filter: var(--glass-blur);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 24px;
+    padding: 16px 14px;
     display: flex;
     align-items: flex-start;
-    gap: 20px;
+    gap: 12px;
     transition: transform var(--transition-normal), border-color var(--transition-normal), background-color var(--transition-normal);
+    min-width: 0;
+    overflow: hidden;
 }
 
 .kpi-card:hover {
@@ -604,8 +606,8 @@ body:not(.dark-theme) select option {
 }
 
 .kpi-icon {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--radius-md);
     background-color: var(--secondary);
     display: flex;
@@ -616,29 +618,37 @@ body:not(.dark-theme) select option {
 }
 
 .kpi-icon i {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
 }
 
 .kpi-content {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .kpi-label {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .kpi-value {
-    font-size: 1.8rem;
+    font-size: clamp(1.1rem, 1.5vw, 1.45rem);
     font-weight: 700;
     font-family: var(--font-display);
-    letter-spacing: -0.5px;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .kpi-trend {
@@ -1998,4 +2008,73 @@ body.light-theme .modal-content {
         border-radius: var(--radius-md);
         margin: 0 16px;
     }
+}
+
+/* BOTONES DE ACCIÓN HOMOGÉNEOS EN TABLA PRÉSTAMOS */
+.btn-action-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.btn-action-icon i {
+    width: 15px;
+    height: 15px;
+}
+.btn-action-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+.btn-action-icon.btn-pay {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+.btn-action-icon.btn-pay:hover {
+    background: var(--success);
+    color: #fff;
+}
+.btn-action-icon.btn-renew-loan {
+    background: rgba(99, 102, 241, 0.12);
+    color: #818cf8;
+    border-color: rgba(99, 102, 241, 0.3);
+}
+.btn-action-icon.btn-renew-loan:hover {
+    background: #6366f1;
+    color: #fff;
+}
+.btn-action-icon.btn-edit-loan {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--warning);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+.btn-action-icon.btn-edit-loan:hover {
+    background: var(--warning);
+    color: #fff;
+}
+.btn-action-icon.btn-history-loan {
+    background: rgba(14, 165, 233, 0.12);
+    color: var(--info);
+    border-color: rgba(14, 165, 233, 0.3);
+}
+.btn-action-icon.btn-history-loan:hover {
+    background: var(--info);
+    color: #fff;
+}
+.btn-action-icon.btn-delete-loan {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--danger);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+.btn-action-icon.btn-delete-loan:hover {
+    background: var(--danger);
+    color: #fff;
 }

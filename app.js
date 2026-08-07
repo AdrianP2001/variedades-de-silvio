@@ -2850,6 +2850,9 @@ function setupLoanHandlers() {
     
     const filterStatus = document.getElementById("loan-filter-status");
     if (filterStatus) filterStatus.addEventListener("change", renderLoans);
+
+    const filterFreq = document.getElementById("loan-filter-frequency");
+    if (filterFreq) filterFreq.addEventListener("change", renderLoans);
 }
 
 function openEditLoanModal(loanId) {
@@ -3080,11 +3083,13 @@ function renderLoans() {
 
     const search = (document.getElementById("loan-search").value || "").toLowerCase();
     const statusFilter = document.getElementById("loan-filter-status").value || "all";
+    const freqFilter = document.getElementById("loan-filter-frequency") ? document.getElementById("loan-filter-frequency").value : "all";
 
     let filtered = appState.loans.filter(loan => {
         const matchSearch = loan.client.toLowerCase().includes(search);
         const matchStatus = statusFilter === "all" || loan.status === statusFilter;
-        return matchSearch && matchStatus;
+        const matchFreq = freqFilter === "all" || (loan.frequency || 'diaria') === freqFilter;
+        return matchSearch && matchStatus && matchFreq;
     });
 
     tbody.innerHTML = "";
@@ -3123,12 +3128,12 @@ function renderLoans() {
             <td class="text-center">${formatCurrency(quota)} <small class="text-muted">${freqLabel}</small></td>
             <td class="text-center">${statusBadge}</td>
             <td class="text-center">
-                <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
-                    ${loan.status === 'active' ? `<button type="button" class="btn btn-sm btn-success btn-pay" title="Registrar cobro / pago" data-id="${loan.id}"><i data-lucide="dollar-sign"></i> Cobrar</button>` : ''}
-                    ${loan.status === 'active' ? `<button type="button" class="btn btn-sm btn-primary btn-renew-loan" title="Renovar préstamo" data-id="${loan.id}"><i data-lucide="refresh-cw"></i> Renovar</button>` : ''}
-                    <button type="button" class="btn btn-sm btn-secondary btn-edit-loan" title="Editar préstamo" data-id="${loan.id}"><i data-lucide="pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-secondary btn-history-loan" title="Historial del cliente" data-client="${loan.client}"><i data-lucide="history"></i></button>
-                    <button type="button" class="btn btn-sm btn-danger btn-delete-loan" title="Eliminar préstamo" data-id="${loan.id}"><i data-lucide="trash-2"></i></button>
+                <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+                    ${loan.status === 'active' ? `<button type="button" class="btn-action-icon btn-pay" title="Registrar cobro / pago" data-id="${loan.id}"><i data-lucide="dollar-sign"></i></button>` : ''}
+                    ${loan.status === 'active' ? `<button type="button" class="btn-action-icon btn-renew-loan" title="Renovar préstamo" data-id="${loan.id}"><i data-lucide="refresh-cw"></i></button>` : ''}
+                    <button type="button" class="btn-action-icon btn-edit-loan" title="Editar préstamo" data-id="${loan.id}"><i data-lucide="pencil"></i></button>
+                    <button type="button" class="btn-action-icon btn-history-loan" title="Ver historial del cliente" data-client="${loan.client}"><i data-lucide="history"></i></button>
+                    <button type="button" class="btn-action-icon btn-delete-loan" title="Eliminar préstamo" data-id="${loan.id}"><i data-lucide="trash-2"></i></button>
                 </div>
             </td>
         `;
