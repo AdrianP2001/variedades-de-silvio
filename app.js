@@ -54,6 +54,8 @@ let appState = {
     loans: []
 };
 
+let activeDashModule = 'store';
+
 // Instancias de los gráficos globales para poder destruirlas y recrearlas
 let dashboardChartInstance = null;
 let reportsFlowChartInstance = null;
@@ -738,6 +740,48 @@ function populateSaleProductDropdown() {
 
 // --- VISTA 1: DASHBOARD (RENDERING) ---
 function renderDashboard() {
+    setupDashboardModuleSelectors();
+    if (activeDashModule === 'loans') {
+        renderDashboardLoansMode();
+    } else {
+        renderDashboardStoreMode();
+    }
+}
+
+function setupDashboardModuleSelectors() {
+    const dashModuleBtns = document.querySelectorAll("#dashboard-module-selector .btn");
+    dashModuleBtns.forEach(btn => {
+        btn.removeEventListener("click", handleDashModuleChange);
+        btn.addEventListener("click", handleDashModuleChange);
+    });
+}
+
+function handleDashModuleChange(e) {
+    const targetBtn = e.currentTarget;
+    const moduleType = targetBtn.getAttribute("data-dash-module");
+
+    const buttons = document.querySelectorAll("#dashboard-module-selector .btn");
+    buttons.forEach(b => b.classList.remove("active"));
+    targetBtn.classList.add("active");
+
+    activeDashModule = moduleType;
+    renderDashboard();
+}
+
+function renderDashboardStoreMode() {
+    // Restablecer etiquetas de la tarjeta
+    const labelBalance = document.querySelector(".card-balance .kpi-label");
+    const labelIncome = document.querySelector(".card-income .kpi-label");
+    const labelExpense = document.querySelector(".card-expense .kpi-label");
+    const labelNet = document.querySelector(".card-net-profit .kpi-label");
+    const labelInv = document.querySelector(".card-inventory .kpi-label");
+
+    if (labelBalance) labelBalance.textContent = "Saldo Actual (Caja)";
+    if (labelIncome) labelIncome.textContent = "Total Ingresos";
+    if (labelExpense) labelExpense.textContent = "Total Egresos";
+    if (labelNet) labelNet.textContent = "Ingreso Neto (Ganancia)";
+    if (labelInv) labelInv.textContent = "Valor de Inventario";
+
     // 1. Cálculos de caja
     let totalIncome = 0;
     let totalExpense = 0;
@@ -764,6 +808,25 @@ function renderDashboard() {
     document.getElementById("kpi-balance").textContent = formatCurrency(currentBalance);
     document.getElementById("kpi-income").textContent = formatCurrency(totalIncome);
     document.getElementById("kpi-expense").textContent = formatCurrency(totalExpense);
+    
+    // Ingreso Neto (Ingresos - Egresos)
+    const netIncomeVal = totalIncome - totalExpense;
+    const kpiNetProfit = document.getElementById("kpi-net-profit");
+    const kpiNetProfitSub = document.getElementById("kpi-net-profit-sub");
+    if (kpiNetProfit) {
+        kpiNetProfit.textContent = formatCurrency(netIncomeVal);
+        kpiNetProfit.className = netIncomeVal < 0 ? "kpi-value text-danger" : "kpi-value text-success";
+    }
+    if (kpiNetProfitSub) {
+        if (netIncomeVal < 0) {
+            kpiNetProfitSub.className = "kpi-trend text-danger";
+            kpiNetProfitSub.innerHTML = `<i data-lucide="trending-down"></i> Pérdida neta en tienda`;
+        } else {
+            kpiNetProfitSub.className = "kpi-trend text-success";
+            kpiNetProfitSub.innerHTML = `<i data-lucide="sparkles"></i> Beneficio neto acumulado`;
+        }
+    }
+
     document.getElementById("kpi-inventory").textContent = formatCurrency(totalInventoryVal);
     document.getElementById("kpi-inventory-sub").innerHTML = `<i data-lucide="package-search"></i> ${totalItemsStock} unidades en almacén`;
 
@@ -777,14 +840,75 @@ function renderDashboard() {
         balanceTrend.innerHTML = `<i data-lucide="activity"></i> Saldo en efectivo y cuentas`;
     }
 
-    // 4. Alertas de bajo stock
     renderDashboardStockAlerts();
-
-    // 5. Últimos movimientos (5)
     renderDashboardRecentActivity();
-
-    // 6. Cargar gráfico mensual
     renderDashboardChart();
+}
+
+function renderDashboardLoansMode() {
+    if (!appState.loans) appState.loans = [];
+    
+    let totalCapital = 0;
+    let totalToCollect = 0;
+    let totalCollected = 0;
+    let totalPending = 0;
+    let totalInterestProfit = 0;
+    let activeLoansCount = 0;
+
+    appState.loans.forEach(loan => {
+        totalCollected += loan.paid;
+        if (loan.total > 0) {
+            const interestProportion = (loan.total - loan.amount) / loan.total;
+            totalInterestProfit += (loan.paid * interestProportion);
+        }
+
+        if (loan.status === 'active') {
+            totalCapital += loan.amount;
+            totalToCollect += loan.total;
+            totalPending += (loan.total - loan.paid);
+            activeLoansCount++;
+        }
+    });
+
+    const labelBalance = document.querySelector(".card-balance .kpi-label");
+    const labelIncome = document.querySelector(".card-income .kpi-label");
+    const labelExpense = document.querySelector(".card-expense .kpi-label");
+    const labelNet = document.querySelector(".card-net-profit .kpi-label");
+    const labelInv = document.querySelector(".card-inventory .kpi-label");
+
+    if (labelBalance) labelBalance.textContent = "Capital Prestado";
+    if (labelIncome) labelIncome.textContent = "Total a Cobrar";
+    if (labelExpense) labelExpense.textContent = "Total Recaudado";
+    if (labelNet) labelNet.textContent = "Ingreso Neto (Interés)";
+    if (labelInv) labelInv.textContent = "Saldo Pendiente";
+
+    document.getElementById("kpi-balance").textContent = formatCurrency(totalCapital);
+    document.getElementById("kpi-income").textContent = formatCurrency(totalToCollect);
+    document.getElementById("kpi-expense").textContent = formatCurrency(totalCollected);
+
+    const kpiNetProfit = document.getElementById("kpi-net-profit");
+    const kpiNetProfitSub = document.getElementById("kpi-net-profit-sub");
+    if (kpiNetProfit) {
+        kpiNetProfit.textContent = formatCurrency(totalInterestProfit);
+        kpiNetProfit.className = "kpi-value text-success";
+    }
+    if (kpiNetProfitSub) {
+        kpiNetProfitSub.className = "kpi-trend text-success";
+        kpiNetProfitSub.innerHTML = `<i data-lucide="sparkles"></i> Ganancia por Intereses`;
+    }
+
+    document.getElementById("kpi-inventory").textContent = formatCurrency(totalPending);
+    document.getElementById("kpi-inventory-sub").innerHTML = `<i data-lucide="badge-alert"></i> Capital activo por cobrar`;
+
+    const balanceTrend = document.getElementById("kpi-balance-trend");
+    if (balanceTrend) {
+        balanceTrend.className = "kpi-trend text-warning";
+        balanceTrend.innerHTML = `<i data-lucide="hand-coins"></i> ${activeLoansCount} préstamos activos`;
+    }
+
+    renderDashboardStockAlerts();
+    renderDashboardLoansRecentActivity();
+    renderDashboardLoansChart();
 }
 
 function renderDashboardStockAlerts() {
@@ -868,17 +992,168 @@ function renderDashboardRecentActivity() {
     lucide.createIcons();
 }
 
+function renderDashboardLoansRecentActivity() {
+    const tbody = document.getElementById("recent-transactions-tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    const loanEvents = [];
+    appState.loans.forEach(loan => {
+        loanEvents.push({
+            date: loan.date,
+            type: 'otorgado',
+            description: `Préstamo Otorgado: ${loan.client}`,
+            category: 'Préstamo Principal',
+            amount: loan.amount
+        });
+        if (loan.payments) {
+            loan.payments.forEach(p => {
+                loanEvents.push({
+                    date: p.date,
+                    type: 'cobro',
+                    description: `Abono/Cobro Préstamo: ${loan.client}`,
+                    category: 'Cobro de Cuota',
+                    amount: p.amount
+                });
+            });
+        }
+    });
+
+    loanEvents.sort((a, b) => new Date(b.date + 'T00:00:00') - new Date(a.date + 'T00:00:00'));
+    const top5 = loanEvents.slice(0, 5);
+
+    if (top5.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No hay actividad reciente de préstamos.</td></tr>`;
+        return;
+    }
+
+    top5.forEach(item => {
+        const isCobro = item.type === 'cobro';
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td data-label="Fecha">${item.date.split('-').reverse().join('/')}</td>
+            <td data-label="Tipo">
+                <span class="row-type-badge ${isCobro ? 'row-type-ingreso' : 'row-type-egreso'}">
+                    <i data-lucide="${isCobro ? 'hand-coins' : 'arrow-up-right'}"></i>
+                    ${isCobro ? 'Cobro' : 'Prestado'}
+                </span>
+            </td>
+            <td class="product-cell" style="font-weight: 500;">${item.description}</td>
+            <td data-label="Categoría">${item.category}</td>
+            <td class="text-right font-semibold ${isCobro ? 'text-success' : 'text-danger'}" data-label="Monto">
+                ${isCobro ? '+' : '-'}${formatCurrency(item.amount)}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    lucide.createIcons();
+}
+
+function renderDashboardLoansChart() {
+    const ctx = document.getElementById("chart-dashboard").getContext("2d");
+    
+    const monthlyData = {};
+    appState.loans.forEach(loan => {
+        const mStart = loan.date.substring(0, 7);
+        if (!monthlyData[mStart]) monthlyData[mStart] = { prestado: 0, cobrado: 0 };
+        monthlyData[mStart].prestado += loan.amount;
+
+        if (loan.payments) {
+            loan.payments.forEach(p => {
+                const mPay = p.date.substring(0, 7);
+                if (!monthlyData[mPay]) monthlyData[mPay] = { prestado: 0, cobrado: 0 };
+                monthlyData[mPay].cobrado += p.amount;
+            });
+        }
+    });
+
+    const sortedMonths = Object.keys(monthlyData).sort().slice(-6);
+    if (sortedMonths.length === 0) {
+        const now = new Date();
+        for (let i = 2; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const mStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            monthlyData[mStr] = { prestado: 0, cobrado: 0 };
+            sortedMonths.push(mStr);
+        }
+    }
+
+    const labels = sortedMonths.map(m => {
+        const parts = m.split('-');
+        return new Date(parts[0], parts[1] - 1, 1).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+    });
+    
+    const prestado = sortedMonths.map(m => monthlyData[m].prestado);
+    const cobrado = sortedMonths.map(m => monthlyData[m].cobrado);
+
+    if (dashboardChartInstance) {
+        dashboardChartInstance.destroy();
+    }
+
+    const isDark = document.body.classList.contains("dark-theme");
+    const textColor = isDark ? '#94a3b8' : '#475569';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
+    dashboardChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Recaudado (Abonos)',
+                    data: cobrado,
+                    backgroundColor: '#10b981',
+                    borderColor: '#059669',
+                    borderWidth: 1,
+                    borderRadius: 6
+                },
+                {
+                    label: 'Capital Otorgado',
+                    data: prestado,
+                    backgroundColor: '#f59e0b',
+                    borderColor: '#d97706',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: textColor } },
+                y: { grid: { color: gridColor }, ticks: { color: textColor } }
+            }
+        }
+    });
+}
+
 function renderDashboardChart() {
     const ctx = document.getElementById("chart-dashboard").getContext("2d");
     
-    // Obtener los últimos 6 meses que tienen datos
+    // Obtener los meses que tienen datos reales
     const monthlyData = {};
     
-    // Llenar por defecto con los meses del Excel para que no se vea vacío
-    const defaultMonths = ["2023-01", "2023-02", "2023-03"];
-    defaultMonths.forEach(m => {
-        monthlyData[m] = { ingresos: 0, gastos: 0 };
-    });
+    // Si no hay transacciones aún, inicializar con los últimos 3 meses dinámicos según fecha actual
+    if (appState.transactions.length === 0) {
+        const now = new Date();
+        for (let i = 2; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            monthlyData[monthStr] = { ingresos: 0, gastos: 0 };
+        }
+    }
 
     appState.transactions.forEach(t => {
         const monthKey = t.date.substring(0, 7); // "YYYY-MM"
@@ -921,18 +1196,18 @@ function renderDashboardChart() {
                 {
                     label: 'Ingresos',
                     data: ingresos,
-                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
-                    borderColor: '#10b981',
+                    backgroundColor: '#10b981',
+                    borderColor: '#059669',
                     borderWidth: 1,
-                    borderRadius: 4
+                    borderRadius: 6
                 },
                 {
                     label: 'Gastos',
                     data: gastos,
-                    backgroundColor: 'rgba(249, 115, 22, 0.7)',
-                    borderColor: '#f97316',
+                    backgroundColor: '#ef4444',
+                    borderColor: '#dc2626',
                     borderWidth: 1,
-                    borderRadius: 4
+                    borderRadius: 6
                 }
             ]
         },
@@ -1208,12 +1483,8 @@ function renderTransactions() {
 function populateTransactionMonthsDropdown(selectedValue) {
     const dropdown = document.getElementById("transaction-filter-month");
     
-    // Obtener meses únicos con datos
+    // Obtener meses únicos con datos reales
     const months = new Set();
-    // Forzar meses del excel en las opciones
-    months.add("2023-01");
-    months.add("2023-02");
-    months.add("2023-03");
 
     appState.transactions.forEach(t => {
         months.add(t.date.substring(0, 7));
@@ -1721,27 +1992,25 @@ function renderReportsCharts(filteredTransactions) {
     if (reportsFlowChartInstance) reportsFlowChartInstance.destroy();
     
     reportsFlowChartInstance = new Chart(ctxFlow, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: labels,
             datasets: [
                 {
                     label: 'Ingresos',
                     data: datasetInc,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.3
+                    backgroundColor: '#10b981',
+                    borderColor: '#059669',
+                    borderWidth: 1,
+                    borderRadius: 6
                 },
                 {
                     label: 'Gastos',
                     data: datasetExp,
-                    borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.3
+                    backgroundColor: '#ef4444',
+                    borderColor: '#dc2626',
+                    borderWidth: 1,
+                    borderRadius: 6
                 }
             ]
         },
@@ -2533,12 +2802,92 @@ function setupLoanHandlers() {
         });
     }
 
+    // Formulario de edición de préstamo
+    const formEditLoan = document.getElementById("form-edit-loan");
+    if (formEditLoan) {
+        ["edit-loan-amount", "edit-loan-interest", "edit-loan-days", "edit-loan-frequency"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener("input", calculateEditLoan);
+            if (el) el.addEventListener("change", calculateEditLoan);
+        });
+
+        formEditLoan.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const loanId = document.getElementById("edit-loan-id").value;
+            const loan = appState.loans.find(l => l.id === loanId);
+            if (!loan) return;
+
+            const date = document.getElementById("edit-loan-date").value;
+            const client = document.getElementById("edit-loan-client").value.trim();
+            const amount = parseFloat(document.getElementById("edit-loan-amount").value) || 0;
+            const interest = parseFloat(document.getElementById("edit-loan-interest").value) || 0;
+            const days = parseInt(document.getElementById("edit-loan-days").value) || 1;
+            const frequency = document.getElementById("edit-loan-frequency").value;
+            const total = amount + (amount * (interest / 100));
+
+            loan.date = date;
+            loan.client = client;
+            loan.amount = amount;
+            loan.interest = interest;
+            loan.days = days;
+            loan.frequency = frequency;
+            loan.total = total;
+
+            if (loan.paid >= loan.total) loan.status = 'paid';
+            else if (loan.status === 'paid' && loan.paid < loan.total) loan.status = 'active';
+
+            saveState();
+            closeModal("edit-loan");
+            renderLoans();
+            refreshActiveView();
+            showToast("Préstamo actualizado correctamente", "success");
+        });
+    }
+
     // Filtros de búsqueda
     const searchInput = document.getElementById("loan-search");
     if (searchInput) searchInput.addEventListener("input", renderLoans);
     
     const filterStatus = document.getElementById("loan-filter-status");
     if (filterStatus) filterStatus.addEventListener("change", renderLoans);
+}
+
+function openEditLoanModal(loanId) {
+    const loan = appState.loans.find(l => l.id === loanId);
+    if (!loan) return;
+
+    document.getElementById("edit-loan-id").value = loan.id;
+    document.getElementById("edit-loan-date").value = loan.date;
+    document.getElementById("edit-loan-client").value = loan.client;
+    document.getElementById("edit-loan-amount").value = loan.amount;
+    document.getElementById("edit-loan-interest").value = loan.interest || 20;
+    document.getElementById("edit-loan-days").value = loan.days || 24;
+    document.getElementById("edit-loan-frequency").value = loan.frequency || 'diaria';
+
+    calculateEditLoan();
+    openModal("edit-loan");
+}
+
+function calculateEditLoan() {
+    const amount = parseFloat(document.getElementById("edit-loan-amount").value) || 0;
+    const interest = parseFloat(document.getElementById("edit-loan-interest").value) || 0;
+    const days = parseInt(document.getElementById("edit-loan-days").value) || 1;
+    const frequency = document.getElementById("edit-loan-frequency") ? document.getElementById("edit-loan-frequency").value : 'diaria';
+
+    const total = amount + (amount * (interest / 100));
+    const quota = total / days;
+
+    const totalEl = document.getElementById("edit-loan-total");
+    const quotaEl = document.getElementById("edit-loan-quota");
+
+    if (totalEl) totalEl.value = total.toFixed(2);
+
+    let freqLabel = " / día";
+    if (frequency === 'semanal') freqLabel = " / sem";
+    if (frequency === 'quincenal') freqLabel = " / quin";
+    if (frequency === 'mensual') freqLabel = " / mes";
+
+    if (quotaEl) quotaEl.value = formatCurrency(quota) + freqLabel;
 }
 
 function openPaymentModal(loanId) {
@@ -2775,13 +3124,22 @@ function renderLoans() {
             <td class="text-center">${statusBadge}</td>
             <td class="text-center">
                 <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                    ${loan.status === 'active' ? `<button type="button" class="btn btn-sm btn-success btn-pay" title="Registrar cobro / pago" data-id="${loan.id}"><i data-lucide="dollar-sign"></i> Cobrar</button>` : ''}
                     ${loan.status === 'active' ? `<button type="button" class="btn btn-sm btn-primary btn-renew-loan" title="Renovar préstamo" data-id="${loan.id}"><i data-lucide="refresh-cw"></i> Renovar</button>` : ''}
-                    ${loan.status === 'active' ? `<button type="button" class="btn btn-sm btn-success btn-pay" title="Registrar cobro" data-id="${loan.id}"><i data-lucide="dollar-sign"></i> Cobrar</button>` : ''}
+                    <button type="button" class="btn btn-sm btn-secondary btn-edit-loan" title="Editar préstamo" data-id="${loan.id}"><i data-lucide="pencil"></i></button>
+                    <button type="button" class="btn btn-sm btn-secondary btn-history-loan" title="Historial del cliente" data-client="${loan.client}"><i data-lucide="history"></i></button>
                     <button type="button" class="btn btn-sm btn-danger btn-delete-loan" title="Eliminar préstamo" data-id="${loan.id}"><i data-lucide="trash-2"></i></button>
                 </div>
             </td>
         `;
         tbody.appendChild(tr);
+    });
+
+    document.querySelectorAll(".btn-edit-loan").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const id = e.currentTarget.getAttribute("data-id");
+            openEditLoanModal(id);
+        });
     });
 
     document.querySelectorAll(".btn-history-loan").forEach(btn => {
