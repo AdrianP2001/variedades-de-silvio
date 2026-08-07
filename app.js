@@ -184,6 +184,14 @@ function loadState() {
             if (!appState.products) appState.products = [];
             if (!appState.transactions) appState.transactions = [];
             if (!appState.loans) appState.loans = [];
+
+            // Filtrar y eliminar transacciones de préstamos registradas previamente en la Caja de la tienda
+            appState.transactions = appState.transactions.filter(t => {
+                if (t.loanId) return false;
+                if (t.description && t.description.toUpperCase().includes("PRESTAMO")) return false;
+                if (t.category === "Préstamos" || t.category === "Prestamos") return false;
+                return true;
+            });
         } catch (e) {
             console.error("Error cargando base de datos guardada, inicializando vacía.", e);
             loadDemoData(false);
@@ -2516,19 +2524,6 @@ function setupLoanHandlers() {
 
             if (!appState.loans) appState.loans = [];
             appState.loans.push(newLoan);
-
-            // Registrar la transacción de la nueva entrega de capital si hubo dinero nuevo entregado
-            if (newCapital > 0) {
-                appState.transactions.push({
-                    id: generateId("tx"),
-                    date: date,
-                    type: "egreso",
-                    description: `RENOVACION DE PRESTAMO (NUEVO CAPITAL): ${oldLoan.client}`,
-                    category: "Otros Gastos",
-                    value: newCapital,
-                    loanId: newLoan.id
-                });
-            }
 
             saveState();
             closeModal("renew-loan");
