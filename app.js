@@ -1559,10 +1559,31 @@ function ensureStockEntriesInitialized() {
     if (!appState.stockEntries || !Array.isArray(appState.stockEntries)) {
         appState.stockEntries = [];
     }
-    // Depurar cualquier entrada artificial anterior que asignaba fecha de hoy a productos base
-    const prevCount = appState.stockEntries.length;
-    appState.stockEntries = appState.stockEntries.filter(e => !e.id.startsWith("entry-prod-"));
-    if (appState.stockEntries.length !== prevCount) {
+
+    let modified = false;
+
+    // Sincronizar catálogo existente con el historial
+    appState.products.forEach(p => {
+        const hasEntry = appState.stockEntries.some(e => e.productId === p.id && (e.type === "nuevo_producto" || e.type === "base_inicial"));
+        if (!hasEntry) {
+            const isBase = !p.createdAt;
+            appState.stockEntries.push({
+                id: "entry-" + p.id,
+                type: isBase ? "base_inicial" : "nuevo_producto",
+                productId: p.id,
+                productName: p.name,
+                category: p.category,
+                qty: p.initialStock !== undefined ? p.initialStock : p.stock,
+                costPrice: p.costPrice,
+                sellingPrice: p.sellingPrice,
+                date: p.createdAt || null, // null indica Inventario Base histórico, no de hoy
+                txId: null
+            });
+            modified = true;
+        }
+    });
+
+    if (modified) {
         saveState();
     }
 }
@@ -1597,8 +1618,13 @@ function renderProductHistory() {
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const currentMonthPrefix = now.toISOString().substring(0, 7);
 
-    // Clonar lista de entradas ordenadas cronológicamente (más recientes primero)
-    let list = [...appState.stockEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Clonar lista de entradas ordenadas: más recientes con fecha primero, inventario base al final
+    let list = [...appState.stockEntries].sort((a, b) => {
+        if (a.date && b.date) return new Date(b.date) - new Date(a.date);
+        if (a.date && !b.date) return -1;
+        if (!a.date && b.date) return 1;
+        return 0;
+    });
 
     // Filtro por periodo
     if (periodVal === "today") {
@@ -1637,7 +1663,11 @@ function renderProductHistory() {
 
     list.forEach(entry => {
         const prod = appState.products.find(p => p.id === entry.productId);
-        let dateFormatted = "Registro Inicial";
+        const isBase = entry.type === "base_inicial";
+        const isNew = entry.type === "nuevo_producto";
+        const currentStockDisplay = prod ? `${prod.stock} u.` : '<span class="text-muted">No en catálogo</span>';
+
+        let dateFormatted = "Inventario Base";
         let isToday = false;
 
         if (entry.date) {
@@ -1656,23 +1686,41 @@ function renderProductHistory() {
             }
         }
 
-        const isNew = entry.type === "nuevo_producto";
-        const currentStockDisplay = prod ? `${prod.stock} u.` : '<span class="text-muted">No en catálogo</span>';
+        let badgeTypeHtml = '';
+        if (isBase) {
+            badgeTypeHtml = `
+                <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border-color);">
+                    <i data-lucide="database" style="width: 12px; height: 12px;"></i>
+                    Inventario Base
+                </span>`;
+        } else if (isNew) {
+            badgeTypeHtml = `
+                <span class="badge badge-info" style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
+                    <i data-lucide="package-plus" style="width: 12px; height: 12px;"></i>
+                    Alta Nueva
+                </span>`;
+        } else {
+            badgeTypeHtml = `
+                <span class="badge badge-success" style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
+                    <i data-lucide="plus-circle" style="width: 12px; height: 12px;"></i>
+                    Reposición
+                </span>`;
+        }
+
+        const dateIcon = isBase ? 'database' : 'calendar';
+        const dateIconColor = isBase ? 'var(--text-muted)' : 'var(--primary)';
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td data-label="Fecha y Hora">
                 <div style="font-weight: 500; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
-                    <i data-lucide="calendar" style="width: 14px; height: 14px; color: var(--primary);"></i>
+                    <i data-lucide="${dateIcon}" style="width: 14px; height: 14px; color: ${dateIconColor};"></i>
                     <span>${dateFormatted}</span>
                     ${isToday ? '<span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;">Hoy</span>' : ''}
                 </div>
             </td>
             <td data-label="Tipo Ingreso">
-                <span class="badge ${isNew ? 'badge-info' : 'badge-success'}" style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
-                    <i data-lucide="${isNew ? 'package-plus' : 'plus-circle'}" style="width: 12px; height: 12px;"></i>
-                    ${isNew ? 'Alta Inicial' : 'Reposición'}
-                </span>
+                ${badgeTypeHtml}
             </td>
             <td class="product-cell" data-label="Producto">
                 <div style="font-weight: 600; color: #fff;" class="product-title-td">${entry.productName}</div>
@@ -1717,11 +1765,11 @@ function showDeleteEntryChoiceModal(entry, product) {
             return;
         }
 
-        const isNewProduct = entry.type === "nuevo_producto";
+        const isNewProduct = entry.type === "nuevo_producto" || entry.type === "base_inicial";
         const newStockAfterQty = Math.max(0, product.stock - entry.qty);
 
         if (isNewProduct) {
-            descEl.innerHTML = `Estás a punto de anular el ingreso inicial de <strong>${entry.qty} unidades</strong> del producto <strong>"${product.name}"</strong> (Stock actual: ${product.stock} u.).<br><br>¿Cómo deseas proceder?`;
+            descEl.innerHTML = `Estás a punto de anular el ingreso de <strong>${entry.qty} unidades</strong> del producto <strong>"${product.name}"</strong> (Stock actual: ${product.stock} u.).<br><br>¿Cómo deseas proceder?`;
             btnQty.textContent = `Descontar solo ${entry.qty} u.`;
             btnFull.style.display = "inline-flex";
             if (fullNote) fullNote.style.display = "block";
@@ -1882,10 +1930,10 @@ function openEditStockEntryModal(entryId) {
 
     inputQty.oninput = updateSummary;
 
-    // Enlace opcional para editar datos completos del producto si es un alta inicial
+    // Enlace opcional para editar datos completos del producto si es un alta o inventario base
     const fullProdBtnWrap = document.getElementById("edit-entry-product-details-link");
     if (fullProdBtnWrap) {
-        fullProdBtnWrap.style.display = entry.type === "nuevo_producto" ? "block" : "none";
+        fullProdBtnWrap.style.display = (entry.type === "nuevo_producto" || entry.type === "base_inicial") ? "block" : "none";
         const btnFullProd = document.getElementById("btn-edit-entry-full-product");
         if (btnFullProd) {
             btnFullProd.onclick = () => {
@@ -1925,8 +1973,8 @@ function setupEditStockEntryForm() {
         product.stock = Math.max(0, product.stock + diff);
         entry.qty = newQty;
 
-        // Si era alta inicial, sincronizar initialStock si existe
-        if (entry.type === "nuevo_producto" && product.initialStock !== undefined) {
+        // Si era alta inicial o base, sincronizar initialStock si existe
+        if ((entry.type === "nuevo_producto" || entry.type === "base_inicial") && product.initialStock !== undefined) {
             product.initialStock = newQty;
         }
 
