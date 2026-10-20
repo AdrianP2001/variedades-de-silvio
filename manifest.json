@@ -20,5 +20,9 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "developer": {
+    "name": "Adrián Plaza",
+    "url": "https://github.com/AdrianP2001"
+  }
 }

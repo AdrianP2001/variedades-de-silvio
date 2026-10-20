@@ -6,5 +6,6 @@
   "scripts": {},
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4"
-  }
+  },
+  "author": "Adrián Plaza <adriplaza23@gmail.com>"
 }
