@@ -1286,9 +1286,14 @@ function setupFormHandlers() {
                             // Limpiar cualquier entrada artificial previa si existiera
                             appState.stockEntries = appState.stockEntries.filter(e => !e.id.startsWith("entry-prod-"));
                         }
+                        localStorage.removeItem("silvio_db_cleared");
                         saveState();
+                        if (typeof CloudSync !== 'undefined' && CloudSync.pushFullState) {
+                            showToast("Subiendo copia de seguridad a la nube de Neon...", "info");
+                            await CloudSync.pushFullState(appState);
+                        }
                         refreshActiveView();
-                        showToast("Datos restaurados correctamente.", "success");
+                        showToast("Datos restaurados y sincronizados con la nube correctamente.", "success");
                     }
                 } else {
                     showToast("El archivo no tiene el formato de copia de seguridad válido.", "error");
