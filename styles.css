@@ -1587,15 +1587,21 @@ body.light-theme .modal-content {
     
     .modal-content {
         width: 95%;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
         border-radius: var(--radius-md);
     }
     
     .modal-body {
         padding: 20px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     .modal-footer {
         padding: 16px 20px;
+        flex-shrink: 0;
     }
     
     .inventory-controls-container {
