@@ -188,28 +188,6 @@
                 <!-- VISTA 1: DASHBOARD -->
                 <section id="view-dashboard" class="app-view active">
                     
-                    <!-- Banner de Cierre de Día (Backup Rápido & Móvil) -->
-                    <div class="dashboard-banner" style="display: flex; justify-content: space-between; align-items: center; background: var(--primary-gradient); padding: 16px 24px; border-radius: var(--radius-md); margin-bottom: 24px; color: white; box-shadow: 0 4px 12px hsla(185, 84%, 42%, 0.2); flex-wrap: wrap; gap: 12px;">
-                        <div>
-                            <h3 style="margin-bottom: 4px; color: white; display: flex; align-items: center; gap: 8px;">
-                                <i data-lucide="shield-alert" style="width: 20px; height: 20px;"></i>
-                                Respaldo &amp; Sincronización Móvil
-                            </h3>
-                            <p style="font-size: 0.85rem; opacity: 0.9;">Guarda copias de seguridad o envía las ventas de tu celular a la laptop.</p>
-                        </div>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <button class="btn" id="btn-quick-mobile-export" style="background: rgba(14, 165, 233, 0.25); color: #fff; font-weight: 600; border: 1px solid #0ea5e9; padding: 10px 14px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(4px);">
-                                <i data-lucide="smartphone" style="color: #38bdf8;"></i> Pasar Datos al Celular
-                            </button>
-                            <button class="btn" id="btn-quick-mobile-share" style="background: rgba(16, 185, 129, 0.25); color: #fff; font-weight: 600; border: 1px solid #10b981; padding: 10px 14px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(4px);">
-                                <i data-lucide="share-2" style="color: #34d399;"></i> Enviar Cierre a Laptop
-                            </button>
-                            <button class="btn" id="btn-daily-close" style="background: white; color: #0f172a; font-weight: 600; border: none; padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow-sm); transition: transform 0.2s;">
-                                <i data-lucide="download-cloud" style="color: var(--primary);"></i> Respaldo Completo
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Selector de Módulo de Resumen (Tienda vs Préstamos) -->
                     <div class="dashboard-module-selector" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--bg-card); padding: 12px 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -649,49 +627,6 @@
                                         <i data-lucide="table-2"></i>
                                         <span>Excel — Inventario &amp; Movimientos</span>
                                     </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- NUEVA TARJETA: SINCRONIZACIÓN MÓVIL (CELULAR ⇄ LAPTOP) -->
-                        <div class="dashboard-card" style="grid-column: 1 / -1; border-color: rgba(16, 185, 129, 0.35); background: linear-gradient(180deg, rgba(16, 185, 129, 0.04) 0%, rgba(15, 23, 42, 0.4) 100%);">
-                            <div class="card-header">
-                                <h3 style="display: flex; align-items: center; gap: 8px;">
-                                    <i data-lucide="smartphone" style="color: #34d399;"></i>
-                                    Sincronización Celular ⇄ Laptop (Fusión de Operaciones)
-                                </h3>
-                                <div class="card-actions">
-                                    <span class="badge badge-success" style="display: flex; align-items: center; gap: 4px;">
-                                        <i data-lucide="zap" style="width: 12px; height: 12px;"></i> Fusión Inteligente
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="card-body padding-lg">
-                                <p class="text-muted mb-4">
-                                    Pasa las ventas y gastos registrados en tu celular a la laptop sin riesgo: suma el dinero de las ventas a la caja, descuenta el stock vendido automáticamente y <strong>no borra</strong> los datos de la laptop.
-                                </p>
-                                <div class="backup-buttons" style="flex-wrap: wrap; gap: 12px;">
-                                    <button class="btn btn-primary btn-icon-text" id="btn-export-to-mobile" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border: none;">
-                                        <i data-lucide="smartphone"></i>
-                                        <span>📲 Pasar Catálogo al Celular</span>
-                                    </button>
-                                    
-                                    <button class="btn btn-primary btn-icon-text" id="btn-share-mobile-sync" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
-                                        <i data-lucide="share-2"></i>
-                                        <span>📤 Enviar Cierre a la Laptop</span>
-                                    </button>
-                                    
-                                    <div class="file-input-wrapper">
-                                        <button class="btn btn-secondary btn-icon-text btn-file-dummy" style="border-color: #34d399;">
-                                            <i data-lucide="download" style="color: #34d399;"></i>
-                                            <span>📥 Fusionar Cierre del Celular (En la Laptop)</span>
-                                        </button>
-                                        <input type="file" id="input-merge-mobile-sync" accept=".json">
-                                    </div>
-                                </div>
-                                <div style="margin-top: 14px; padding: 12px 16px; background: rgba(56, 189, 248, 0.05); border-radius: var(--radius-sm); border: 1px solid rgba(56, 189, 248, 0.15); font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
-                                    <i data-lucide="info" style="width: 18px; height: 18px; color: var(--primary); flex-shrink: 0;"></i>
-                                    <span><strong>¿Cómo se usa?</strong> En tu celular tocas <em>"Compartir Operaciones"</em> y te lo envías a tu propio WhatsApp. Luego, en la laptop descargas el archivo de WhatsApp Web, tocas <em>"Fusionar Cierre"</em> y listo: ventas sumadas y stock sincronizado sin duplicados.</span>
                                 </div>
                             </div>
                         </div>
@@ -1551,31 +1486,6 @@
                     <button type="submit" class="btn btn-primary">Guardar Cambios</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- MODAL: RESULTADO DE FUSIÓN INTELIGENTE MÓVIL -->
-    <div class="modal" id="modal-merge-result">
-        <div class="modal-content" style="max-width: 520px;">
-            <div class="modal-header">
-                <h2><i data-lucide="check-check" style="color: var(--success);"></i> Fusión de Datos Exitosa</h2>
-                <button class="btn-close modal-close">&times;</button>
-            </div>
-            <div class="modal-body" style="padding: 24px;">
-                <p class="text-white mb-3" style="font-size: 0.95rem;">
-                    Se procesaron las operaciones del archivo móvil y se integraron a tu laptop respetando los datos existentes:
-                </p>
-                <div id="merge-summary-stats" style="display: flex; flex-direction: column; gap: 8px; margin: 16px 0;">
-                    <!-- Rellenado dinámicamente -->
-                </div>
-                <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 0.85rem; color: #a7f3d0; display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="shield-check" style="width: 18px; height: 18px; color: #34d399; flex-shrink: 0;"></i>
-                    <span>Los saldos de caja, inventario y reportes se actualizaron automáticamente.</span>
-                </div>
-            </div>
-            <div class="modal-footer" style="justify-content: flex-end;">
-                <button type="button" class="btn btn-primary modal-close">Entendido</button>
-            </div>
         </div>
     </div>
 
