@@ -140,12 +140,23 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    max-height: 100vh;
     position: sticky;
     top: 0;
     padding: 24px;
     justify-content: space-between;
     transition: background-color var(--transition-normal), border-color var(--transition-normal);
     z-index: 10;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
 }
 
 .sidebar-header {
@@ -2237,10 +2248,101 @@ body.light-theme .modal-content {
     height: 14px;
 }
 
-/* Reducción proporcional y calibrada en pantallas de laptop (<= 1440px) */
-@media (max-width: 1440px) {
+/* Reducción proporcional y calibrada en pantallas de laptop (<= 1440px o poca altura) */
+@media (max-width: 1440px), (max-height: 750px) {
     :root {
         --sidebar-width: 235px;
+    }
+
+    .sidebar {
+        padding: 14px 16px;
+    }
+
+    .sidebar-header {
+        margin-bottom: 14px;
+    }
+
+    .logo-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .logo-text h2 {
+        font-size: 0.98rem;
+    }
+
+    .logo-text span {
+        font-size: 0.70rem;
+    }
+
+    .sidebar-nav {
+        margin-bottom: 10px;
+    }
+
+    .sidebar-nav ul {
+        gap: 4px;
+    }
+
+    .nav-btn {
+        padding: 8px 12px;
+        font-size: 0.86rem;
+        gap: 10px;
+    }
+
+    .nav-btn i {
+        width: 17px;
+        height: 17px;
+    }
+
+    .sidebar-footer {
+        padding-top: 10px;
+        gap: 10px;
+    }
+
+    .theme-toggle-container {
+        font-size: 0.78rem;
+    }
+
+    .switch {
+        width: 38px;
+        height: 20px;
+    }
+
+    .slider:before {
+        height: 14px;
+        width: 14px;
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(18px);
+    }
+
+    .user-profile {
+        gap: 10px;
+    }
+
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+    }
+
+    .user-name {
+        font-size: 0.80rem;
+    }
+
+    .user-role {
+        font-size: 0.70rem;
+    }
+
+    .btn-logout {
+        padding: 8px 12px;
+        font-size: 0.80rem;
+        margin-top: 4px;
+    }
+
+    .btn-logout i {
+        width: 14px;
+        height: 14px;
     }
 
     .main-content {
