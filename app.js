@@ -769,22 +769,6 @@ function setupFormHandlers() {
     document.getElementById("btn-load-demo").addEventListener("click", () => loadDemoData(true));
     document.getElementById("btn-clear-database").addEventListener("click", clearDatabase);
 
-    async function saveFileNativeOrWeb(filename, content, isBase64 = false) {
-        if (window.pywebview && window.pywebview.api) {
-            let b64 = isBase64 ? content : btoa(unescape(encodeURIComponent(content)));
-            return await window.pywebview.api.save_file_native(filename, b64);
-        } else {
-            const dataStr = isBase64 
-                ? `data:application/octet-stream;base64,${content}`
-                : `data:text/json;charset=utf-8,${encodeURIComponent(content)}`;
-            const dlAnchorElem = document.createElement('a');
-            dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", filename);
-            dlAnchorElem.click();
-            return true;
-        }
-    }
-
     // Exportar Backup
     document.getElementById("btn-export-backup").addEventListener("click", async () => {
         const saved = await saveFileNativeOrWeb("moda_varios_respaldo.json", JSON.stringify(appState, null, 2));
@@ -855,6 +839,16 @@ function setupFormHandlers() {
         exportTransactionsToCSV();
     });
 
+    // Sincronización Móvil: Pasar catálogo al Celular (Laptop -> Celular)
+    const btnQuickMobileExport = document.getElementById("btn-quick-mobile-export");
+    if (btnQuickMobileExport) {
+        btnQuickMobileExport.addEventListener("click", () => exportDataToMobile());
+    }
+    const btnExportToMobile = document.getElementById("btn-export-to-mobile");
+    if (btnExportToMobile) {
+        btnExportToMobile.addEventListener("click", () => exportDataToMobile());
+    }
+
     // Sincronización Móvil: Compartir Cierre (Celular)
     const btnQuickMobile = document.getElementById("btn-quick-mobile-share");
     if (btnQuickMobile) {
@@ -879,63 +873,159 @@ function setupFormHandlers() {
 }
 
 // --- FUNCIONES DE SINCRONIZACIÓN MÓVIL Y FUSIÓN INTELIGENTE ---
-async function exportMobileSyncPackage() {
-    const now = new Date();
-    const todayStr = now.toISOString().substring(0, 10);
-    
-    // Recopilar transacciones recientes de hoy (o últimos 2 días para garantizar que nada quede fuera)
-    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
-    const recentTransactions = (appState.transactions || []).filter(t => t.date && t.date >= twoDaysAgo);
-
-    // Productos agregados recientemente
-    const recentProducts = (appState.products || []).filter(p => p.createdAt && p.createdAt.substring(0, 10) >= twoDaysAgo);
-
-    // Ingresos de stock recientes
-    const recentStockEntries = (appState.stockEntries || []).filter(e => e.date && e.date.substring(0, 10) >= twoDaysAgo);
-
-    // Préstamos recientes
-    const recentLoans = (appState.loans || []).filter(l => l.loanDate && l.loanDate >= twoDaysAgo);
-
-    const payload = {
-        exportType: "silvio_mobile_sync",
-        exportedAt: now.toISOString(),
-        date: todayStr,
-        device: "movil",
-        transactions: recentTransactions,
-        products: recentProducts,
-        stockEntries: recentStockEntries,
-        loans: recentLoans
-    };
-
-    const fileName = `Cierre_Movil_${todayStr}.json`;
-    const jsonStr = JSON.stringify(payload, null, 2);
-
-    // Si está en celular (Chrome / Safari), activar menú compartir nativo (WhatsApp, Drive, Quick Share)
-    if (navigator.share && navigator.canShare) {
+// Helper global para guardar / descargar archivos compatible con PyWebView y navegadores web
+async function saveFileNativeOrWeb(filename, content, isBase64 = false) {
+    if (window.pywebview && window.pywebview.api) {
         try {
-            const file = new File([jsonStr], fileName, { type: "application/json" });
-            if (navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    title: `Cierre Móvil Silvio - ${todayStr}`,
-                    text: `Archivo de operaciones del día (${todayStr}) para fusionar en la laptop.`,
-                    files: [file]
-                });
-                showToast("Archivo compartido con éxito.", "success");
-                return;
-            }
-        } catch (err) {
-            if (err.name !== "AbortError") {
-                console.warn("Web Share API falló, usando descarga directa:", err);
-            } else {
-                return; // Usuario canceló el menú compartir
-            }
+            let b64 = isBase64 ? content : btoa(unescape(encodeURIComponent(content)));
+            return await window.pywebview.api.save_file_native(filename, b64);
+        } catch (e) {
+            console.warn("pywebview save failed, fallback to web:", e);
         }
     }
 
-    // Fallback: descarga directa del archivo JSON
-    const saved = await saveFileNativeOrWeb(fileName, jsonStr);
-    if (saved) {
-        showToast("Archivo de cierre móvil generado correctamente.", "success");
+    try {
+        let blob;
+        if (isBase64) {
+            const byteCharacters = atob(content);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/octet-stream" });
+        } else {
+            blob = new Blob([content], { type: "application/json;charset=utf-8" });
+        }
+        const url = URL.createObjectURL(blob);
+        const dlAnchorElem = document.createElement("a");
+        dlAnchorElem.href = url;
+        dlAnchorElem.download = filename;
+        document.body.appendChild(dlAnchorElem);
+        dlAnchorElem.click();
+        setTimeout(() => {
+            document.body.removeChild(dlAnchorElem);
+            URL.revokeObjectURL(url);
+        }, 300);
+        return true;
+    } catch (err) {
+        console.error("Error al descargar archivo web:", err);
+        const dataStr = isBase64 
+            ? `data:application/octet-stream;base64,${content}`
+            : `data:text/json;charset=utf-8,${encodeURIComponent(content)}`;
+        const dlAnchorElem = document.createElement("a");
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", filename);
+        dlAnchorElem.click();
+        return true;
+    }
+}
+
+// Exportar Catálogo Completo para el Celular (Laptop -> Celular)
+async function exportDataToMobile() {
+    try {
+        const now = new Date();
+        const todayStr = now.toISOString().substring(0, 10);
+        const fileName = `Silvio_Para_Celular_${todayStr}.json`;
+        const jsonStr = JSON.stringify(appState, null, 2);
+
+        if (navigator.share && navigator.canShare) {
+            try {
+                const file = new File([jsonStr], fileName, { type: "application/json" });
+                if (navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: `Catálogo Silvio para Celular - ${todayStr}`,
+                        text: `Base de datos de productos y stock para importar en tu celular.`,
+                        files: [file]
+                    });
+                    showToast("Catálogo compartido con éxito.", "success");
+                    return;
+                }
+            } catch (err) {
+                if (err.name !== "AbortError") {
+                    console.warn("Web Share API falló, usando descarga directa:", err);
+                } else {
+                    return;
+                }
+            }
+        }
+
+        const saved = await saveFileNativeOrWeb(fileName, jsonStr);
+        if (saved) {
+            showToast("Archivo para celular generado. Pásalo por WhatsApp a tu celular y cárgalo en Respaldo.", "success");
+        }
+    } catch (err) {
+        console.error("Error al exportar catálogo para celular:", err);
+        showToast("Error al generar archivo para celular: " + err.message, "error");
+    }
+}
+
+async function exportMobileSyncPackage() {
+    try {
+        const now = new Date();
+        const todayStr = now.toISOString().substring(0, 10);
+        
+        // Recopilar transacciones recientes de hoy (o últimos 2 días para garantizar que nada quede fuera)
+        const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
+        const recentTransactions = (appState.transactions || []).filter(t => t.date && t.date >= twoDaysAgo);
+
+        // Productos agregados recientemente
+        const recentProducts = (appState.products || []).filter(p => p.createdAt && p.createdAt.substring(0, 10) >= twoDaysAgo);
+
+        // Ingresos de stock recientes
+        const recentStockEntries = (appState.stockEntries || []).filter(e => e.date && e.date.substring(0, 10) >= twoDaysAgo);
+
+        // Préstamos recientes
+        const recentLoans = (appState.loans || []).filter(l => l.loanDate && l.loanDate >= twoDaysAgo);
+
+        const payload = {
+            exportType: "silvio_mobile_sync",
+            exportedAt: now.toISOString(),
+            date: todayStr,
+            device: "movil",
+            transactions: recentTransactions,
+            products: recentProducts,
+            stockEntries: recentStockEntries,
+            loans: recentLoans
+        };
+
+        const fileName = `Cierre_Movil_${todayStr}.json`;
+        const jsonStr = JSON.stringify(payload, null, 2);
+
+        // Si está en celular (Chrome / Safari), activar menú compartir nativo (WhatsApp, Drive, Quick Share)
+        if (navigator.share && navigator.canShare) {
+            try {
+                const file = new File([jsonStr], fileName, { type: "application/json" });
+                if (navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: `Cierre Móvil Silvio - ${todayStr}`,
+                        text: `Archivo de operaciones del día (${todayStr}) para fusionar en la laptop.`,
+                        files: [file]
+                    });
+                    showToast("Archivo compartido con éxito.", "success");
+                    return;
+                }
+            } catch (err) {
+                if (err.name !== "AbortError") {
+                    console.warn("Web Share API falló, usando descarga directa:", err);
+                } else {
+                    return; // Usuario canceló el menú compartir
+                }
+            }
+        }
+
+        // Fallback: descarga directa del archivo JSON
+        const saved = await saveFileNativeOrWeb(fileName, jsonStr);
+        if (saved) {
+            const count = recentTransactions.length;
+            if (count > 0) {
+                showToast(`Cierre generado con ${count} operaciones de hoy. Listo para enviar.`, "success");
+            } else {
+                showToast("Cierre generado con éxito. (Aún no tienes ventas registradas hoy).", "info");
+            }
+        }
+    } catch (err) {
+        console.error("Error en exportMobileSyncPackage:", err);
+        showToast("Error al exportar cierre móvil: " + err.message, "error");
     }
 }
 

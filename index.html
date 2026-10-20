@@ -194,8 +194,11 @@
                             <p style="font-size: 0.85rem; opacity: 0.9;">Guarda copias de seguridad o envía las ventas de tu celular a la laptop.</p>
                         </div>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn" id="btn-quick-mobile-export" style="background: rgba(14, 165, 233, 0.25); color: #fff; font-weight: 600; border: 1px solid #0ea5e9; padding: 10px 14px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(4px);">
+                                <i data-lucide="smartphone" style="color: #38bdf8;"></i> Pasar Datos al Celular
+                            </button>
                             <button class="btn" id="btn-quick-mobile-share" style="background: rgba(16, 185, 129, 0.25); color: #fff; font-weight: 600; border: 1px solid #10b981; padding: 10px 14px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(4px);">
-                                <i data-lucide="share-2" style="color: #34d399;"></i> Enviar Cierre Móvil
+                                <i data-lucide="share-2" style="color: #34d399;"></i> Enviar Cierre a Laptop
                             </button>
                             <button class="btn" id="btn-daily-close" style="background: white; color: #0f172a; font-weight: 600; border: none; padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow-sm); transition: transform 0.2s;">
                                 <i data-lucide="download-cloud" style="color: var(--primary);"></i> Respaldo Completo
@@ -664,9 +667,14 @@
                                     Pasa las ventas y gastos registrados en tu celular a la laptop sin riesgo: suma el dinero de las ventas a la caja, descuenta el stock vendido automáticamente y <strong>no borra</strong> los datos de la laptop.
                                 </p>
                                 <div class="backup-buttons" style="flex-wrap: wrap; gap: 12px;">
+                                    <button class="btn btn-primary btn-icon-text" id="btn-export-to-mobile" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border: none;">
+                                        <i data-lucide="smartphone"></i>
+                                        <span>📲 Pasar Catálogo al Celular</span>
+                                    </button>
+                                    
                                     <button class="btn btn-primary btn-icon-text" id="btn-share-mobile-sync" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
                                         <i data-lucide="share-2"></i>
-                                        <span>📤 Compartir Operaciones de Hoy (Desde el Celular)</span>
+                                        <span>📤 Enviar Cierre a la Laptop</span>
                                     </button>
                                     
                                     <div class="file-input-wrapper">
