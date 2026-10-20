@@ -2089,3 +2089,20 @@ body.light-theme .modal-content {
     background: var(--danger);
     color: #fff;
 }
+
+/* MODAL HISTORIAL DE PRODUCTOS Y RECIENTES */
+.modal-content-wide {
+    max-width: 980px !important;
+    width: 95% !important;
+}
+
+@media (max-width: 768px) {
+    .modal-content-wide {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+        height: 100% !important;
+        max-height: 100vh !important;
+    }
+}
+

@@ -354,6 +354,10 @@
                                 <option value="empty">Sin Stock</option>
                                 <option value="ok">Stock Saludable</option>
                             </select>
+                            <button class="btn btn-secondary btn-icon-text" id="btn-history-products" title="Ver historial de productos agregados">
+                                <i data-lucide="history"></i>
+                                <span>Historial de Ingresos</span>
+                            </button>
                             <button class="btn btn-primary btn-icon-text" id="btn-add-product">
                                 <i data-lucide="plus"></i>
                                 <span>Nuevo Producto</span>
@@ -936,7 +940,14 @@
 
                     <div class="form-row">
                         <div class="form-group col">
-                            <label for="product-stock">Stock Inicial</label>
+                            <label for="product-stock" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Stock Inicial</span>
+                                <span id="stock-unlock-wrapper" style="display: none;">
+                                    <button type="button" id="btn-unlock-stock" style="background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.75rem; text-decoration: underline; padding: 0;">
+                                        ¿Corregir error de tipeo?
+                                    </button>
+                                </span>
+                            </label>
                             <input type="number" id="product-stock" class="form-control" placeholder="0" min="0" required>
                         </div>
                         <div class="form-group col">
@@ -950,6 +961,67 @@
                     <button type="submit" class="btn btn-primary" id="btn-save-product">Guardar Producto</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL: HISTORIAL DE PRODUCTOS AGREGADOS -->
+    <div class="modal" id="modal-product-history">
+        <div class="modal-content modal-content-wide" style="max-width: 980px; width: 95%;">
+            <div class="modal-header">
+                <h2><i data-lucide="history"></i> Historial de Productos Agregados</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <!-- Panel de filtros y búsqueda rápida -->
+                <div style="background: rgba(255,255,255,0.03); padding: 14px 18px; border-radius: var(--radius-md); margin-bottom: 20px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                    <div>
+                        <h4 class="text-white" style="font-size: 0.95rem; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="check-circle-2" style="width: 16px; height: 16px; color: var(--success);"></i>
+                            Control y Verificación de Ingresos
+                        </h4>
+                        <p class="text-muted" style="font-size: 0.8rem; margin: 0;">
+                            Productos ordenados cronológicamente desde el más reciente. Si te equivocaste al registrar, edítalo o elimínalo al instante.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div class="search-box" style="padding: 6px 12px; max-width: 240px;">
+                            <i data-lucide="search" style="width: 16px; height: 16px;"></i>
+                            <input type="text" id="product-history-search" placeholder="Buscar producto..." autocomplete="off">
+                        </div>
+                        <select id="product-history-period" class="form-select" style="padding: 7px 12px; font-size: 0.85rem;">
+                            <option value="all">Todo el Historial</option>
+                            <option value="today">Agregados Hoy</option>
+                            <option value="week">Últimos 7 Días</option>
+                            <option value="month">Este Mes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tabla de Historial -->
+                <div class="table-container" style="max-height: 430px; overflow-y: auto;">
+                    <table class="data-table" id="product-history-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha y Hora</th>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th class="text-right">P. Costo</th>
+                                <th class="text-right">P. Venta</th>
+                                <th class="text-center">Stock Inicial</th>
+                                <th class="text-center">Stock Actual</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="product-history-tbody">
+                            <!-- Inyectado dinámicamente con JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between; align-items: center;">
+                <span class="text-muted" id="product-history-count" style="font-size: 0.85rem;">0 productos registrados</span>
+                <button type="button" class="btn btn-secondary modal-close">Cerrar</button>
+            </div>
         </div>
     </div>
 

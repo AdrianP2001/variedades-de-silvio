@@ -159,6 +159,7 @@ function initApp() {
     setupLoanHandlers();
     setupQuickActionModals();
     setupThemeToggle();
+    setupProductHistoryListeners();
 
     // 5. Botón cerrar sesión
     document.getElementById("btn-logout").addEventListener("click", async () => {
@@ -344,6 +345,9 @@ function refreshActiveView() {
     if (activeNavBtn) {
         switchView(activeNavBtn.getAttribute("data-view"));
     }
+    if (document.getElementById("modal-product-history")?.classList.contains("active")) {
+        renderProductHistory();
+    }
 }
 
 // --- MODO OSCURO / MODO CLARO ---
@@ -386,6 +390,10 @@ function setupQuickActionModals() {
     // Botones de Abrir
     document.getElementById("btn-quick-sale").addEventListener("click", () => openModal("sale"));
     document.getElementById("btn-quick-expense").addEventListener("click", () => openModal("expense"));
+    const btnHistory = document.getElementById("btn-history-products");
+    if (btnHistory) {
+        btnHistory.addEventListener("click", () => openModal("product-history"));
+    }
 
     // Botones de Cerrar
     closeButtons.forEach(btn => {
@@ -419,6 +427,8 @@ function openModal(modalName) {
         } else if (modalName === "expense") {
             document.getElementById("form-expense").reset();
             document.getElementById("expense-date").value = new Date().toISOString().substring(0, 10);
+        } else if (modalName === "product-history") {
+            renderProductHistory();
         } else if (modalName === "product") {
             // El formulario del producto se maneja directo en setupFormHandlers para diferenciar NEW vs EDIT
         }
@@ -558,9 +568,13 @@ function setupFormHandlers() {
             product.sellingPrice = sellingPrice;
             product.stock = stock;
             product.minStock = minStock;
+            if (product.initialStock === undefined) {
+                product.initialStock = stock;
+            }
             showToast("Producto actualizado correctamente.", "success");
         } else {
             // Nuevo Producto
+            const now = new Date();
             const newProduct = {
                 id: generateId("prod"),
                 name,
@@ -568,7 +582,9 @@ function setupFormHandlers() {
                 costPrice,
                 sellingPrice,
                 stock,
-                minStock
+                initialStock: stock,
+                minStock,
+                createdAt: now.toISOString()
             };
             appState.products.push(newProduct);
             showToast("Producto añadido al inventario.", "success");
@@ -577,6 +593,9 @@ function setupFormHandlers() {
         saveState();
         closeModal("product");
         refreshActiveView();
+        if (document.getElementById("modal-product-history")?.classList.contains("active")) {
+            renderProductHistory();
+        }
     });
 
     // Abrir modal de añadir producto
@@ -588,9 +607,23 @@ function setupFormHandlers() {
         
         // Habilitar la edición de stock inicial al crear
         document.getElementById("product-stock").disabled = false;
+        const unlockWrapper = document.getElementById("stock-unlock-wrapper");
+        if (unlockWrapper) unlockWrapper.style.display = "none";
         
         openModal("product");
     });
+
+    // Desbloquear campo de stock en modo edición si hubo error de tipeo
+    const btnUnlockStock = document.getElementById("btn-unlock-stock");
+    if (btnUnlockStock) {
+        btnUnlockStock.addEventListener("click", (e) => {
+            e.preventDefault();
+            const inputStock = document.getElementById("product-stock");
+            inputStock.disabled = false;
+            inputStock.focus();
+            showToast("Campo de stock desbloqueado para corregir error de tipeo.", "info");
+        });
+    }
 
     // 4. FORMULARIO REABASTECIMIENTO
     const formRestock = document.getElementById("form-restock");
@@ -1393,9 +1426,10 @@ function handleEditProduct(productId) {
     document.getElementById("product-stock").value = product.stock;
     document.getElementById("product-min-stock").value = product.minStock;
 
-    // Deshabilitar la edición manual directa de stock al editar (el stock debe subirse con reabastecimiento o bajarse con venta para que se registren los gastos/ingresos)
-    // Pero si quieren hacer un ajuste rápido, dejamos que el administrador edite, advirtiendo.
+    // Deshabilitar la edición manual directa de stock al editar por defecto
     document.getElementById("product-stock").disabled = true;
+    const unlockWrapper = document.getElementById("stock-unlock-wrapper");
+    if (unlockWrapper) unlockWrapper.style.display = "inline";
 
     document.getElementById("product-modal-title").innerHTML = `<i data-lucide="edit-3"></i> Editar Producto`;
     document.getElementById("btn-save-product").textContent = "Guardar Cambios";
@@ -1413,7 +1447,165 @@ async function handleDeleteProduct(productId) {
         appState.products.splice(productIndex, 1);
         saveState();
         renderInventory();
+        if (document.getElementById("modal-product-history")?.classList.contains("active")) {
+            renderProductHistory();
+        }
         showToast("Producto eliminado.", "info");
+    }
+}
+
+// --- HISTORIAL DE PRODUCTOS AGREGADOS (ALTAS Y CONTROL DE ERRORES) ---
+function setupProductHistoryListeners() {
+    const searchInput = document.getElementById("product-history-search");
+    const periodSelect = document.getElementById("product-history-period");
+    
+    if (searchInput) {
+        searchInput.removeEventListener("input", renderProductHistory);
+        searchInput.addEventListener("input", renderProductHistory);
+    }
+    if (periodSelect) {
+        periodSelect.removeEventListener("change", renderProductHistory);
+        periodSelect.addEventListener("change", renderProductHistory);
+    }
+}
+
+function renderProductHistory() {
+    const tbody = document.getElementById("product-history-tbody");
+    const countEl = document.getElementById("product-history-count");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    const searchVal = (document.getElementById("product-history-search")?.value || "").toLowerCase().trim();
+    const periodVal = document.getElementById("product-history-period")?.value || "all";
+
+    const now = new Date();
+    const todayStr = now.toISOString().substring(0, 10);
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const currentMonthPrefix = now.toISOString().substring(0, 7);
+
+    // Clonar lista de productos e invertir orden cronológico
+    let list = [...appState.products].map((p, idx) => ({ ...p, originalIndex: idx }));
+
+    list.sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        }
+        if (a.createdAt && !b.createdAt) return -1;
+        if (!a.createdAt && b.createdAt) return 1;
+        return b.originalIndex - a.originalIndex;
+    });
+
+    // Filtro por periodo
+    if (periodVal === "today") {
+        list = list.filter(p => p.createdAt && p.createdAt.substring(0, 10) === todayStr);
+    } else if (periodVal === "week") {
+        list = list.filter(p => p.createdAt && new Date(p.createdAt) >= oneWeekAgo);
+    } else if (periodVal === "month") {
+        list = list.filter(p => p.createdAt && p.createdAt.substring(0, 7) === currentMonthPrefix);
+    }
+
+    // Filtro por búsqueda
+    if (searchVal) {
+        list = list.filter(p => 
+            p.name.toLowerCase().includes(searchVal) ||
+            p.category.toLowerCase().includes(searchVal) ||
+            (p.id && p.id.toLowerCase().includes(searchVal))
+        );
+    }
+
+    if (countEl) {
+        countEl.textContent = `Mostrando ${list.length} de ${appState.products.length} productos registrados`;
+    }
+
+    if (list.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted" style="padding: 36px 16px;">
+                    <i data-lucide="package-search" style="width: 36px; height: 36px; margin: 0 auto 10px; display: block; opacity: 0.4;"></i>
+                    <p style="margin: 0; font-size: 0.9rem;">No se encontraron productos agregados para el filtro seleccionado.</p>
+                </td>
+            </tr>
+        `;
+        lucide.createIcons();
+        return;
+    }
+
+    list.forEach(p => {
+        let dateFormatted = "Registro Base";
+        let isToday = false;
+
+        if (p.createdAt) {
+            const d = new Date(p.createdAt);
+            const pDateStr = p.createdAt.substring(0, 10);
+            const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            
+            if (pDateStr === todayStr) {
+                isToday = true;
+                dateFormatted = `Hoy, ${timeStr}`;
+            } else {
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                dateFormatted = `${day}/${month}/${year} ${timeStr}`;
+            }
+        }
+
+        const initialStockDisplay = p.initialStock !== undefined ? p.initialStock : p.stock;
+        const markup = p.costPrice > 0 ? (((p.sellingPrice - p.costPrice) / p.costPrice) * 100).toFixed(0) : '0';
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td data-label="Fecha y Hora">
+                <div style="font-weight: 500; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="calendar" style="width: 14px; height: 14px; color: var(--primary);"></i>
+                    <span>${dateFormatted}</span>
+                    ${isToday ? '<span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;">Reciente</span>' : ''}
+                </div>
+            </td>
+            <td class="product-cell" data-label="Producto">
+                <div style="font-weight: 600; color: #fff;" class="product-title-td">${p.name}</div>
+                <div style="font-size: 0.75rem;" class="text-muted">${p.id}</div>
+            </td>
+            <td data-label="Categoría">
+                <span class="badge" style="background: rgba(255,255,255,0.06); font-size: 0.8rem; font-weight: 500;">${p.category}</span>
+            </td>
+            <td class="text-right font-medium" data-label="P. Costo">${formatCurrency(p.costPrice)}</td>
+            <td class="text-right font-medium text-success" data-label="P. Venta">
+                ${formatCurrency(p.sellingPrice)}
+                <div style="font-size: 0.7rem; color: var(--text-muted);">${markup}% mrg</div>
+            </td>
+            <td class="text-center font-bold" data-label="Stock Inicial" style="color: var(--primary); font-size: 0.95rem;">${initialStockDisplay}</td>
+            <td class="text-center font-bold" data-label="Stock Actual">${p.stock}</td>
+            <td class="table-actions-cell" data-label="Acciones">
+                <button class="btn-sm-icon" onclick="handleEditProductFromHistory('${p.id}')" title="Editar o corregir equivocación de ingreso">
+                    <i data-lucide="edit-3"></i>
+                </button>
+                <button class="btn-sm-icon text-danger" onclick="handleDeleteProductFromHistory('${p.id}')" title="Eliminar si se ingresó por error">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    lucide.createIcons();
+}
+
+function handleEditProductFromHistory(productId) {
+    handleEditProduct(productId);
+    // Habilitar edición directa de stock para corrección rápida por error de tipeo
+    const inputStock = document.getElementById("product-stock");
+    if (inputStock) inputStock.disabled = false;
+    document.getElementById("product-modal-title").innerHTML = `<i data-lucide="edit-3"></i> Corregir Producto Agregado`;
+    document.getElementById("btn-save-product").textContent = "Guardar Corrección";
+    lucide.createIcons();
+}
+
+async function handleDeleteProductFromHistory(productId) {
+    await handleDeleteProduct(productId);
+    if (document.getElementById("modal-product-history")?.classList.contains("active")) {
+        renderProductHistory();
     }
 }
 
