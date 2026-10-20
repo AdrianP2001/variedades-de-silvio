@@ -1,4 +1,4 @@
-const CACHE_NAME = 'silvio-cache-v1';
+const CACHE_NAME = 'silvio-cache-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -12,10 +12,11 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
@@ -35,32 +36,27 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  
+  // API requests should not be cached by SW (handled by app offline queue)
+  if (e.request.url.includes('/api/')) return;
+
+  // Network-First for core assets: always get latest updates if online, fallback to cache if offline (blackout)
   e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        fetch(e.request)
-          .then((networkResponse) => {
-            if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
-              const resClone = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
-            }
-          })
-          .catch(() => {});
-        return cachedResponse;
-      }
-      return fetch(e.request)
-        .then((networkResponse) => {
-          if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
-            const resClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
-          }
-          return networkResponse;
-        })
-        .catch(() => {
+    fetch(e.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const resClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(e.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
           if (e.request.mode === 'navigate') {
             return caches.match('./index.html');
           }
         });
-    })
+      })
   );
 });
