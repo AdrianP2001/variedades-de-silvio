@@ -145,6 +145,418 @@ function logout() {
     location.reload();
 }
 
+// ==========================================================================
+// GESTOR DE SINCRONIZACIÓN OFFLINE-FIRST CON NEON POSTGRES (VERCEL)
+// ==========================================================================
+const CloudSync = {
+    isOnline: navigator.onLine,
+    isCloudConnected: false,
+    pollInterval: null,
+    isSyncing: false,
+    syncQueueKey: "silvio_pending_sync_queue",
+
+    getQueue() {
+        try {
+            return JSON.parse(localStorage.getItem(this.syncQueueKey) || "[]");
+        } catch (e) {
+            return [];
+        }
+    },
+
+    saveQueue(queue) {
+        localStorage.setItem(this.syncQueueKey, JSON.stringify(queue));
+        this.updateStatusBadge();
+    },
+
+    addToQueue(action, payload) {
+        const queue = this.getQueue();
+        queue.push({
+            id: "sync-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
+            action,
+            payload,
+            timestamp: new Date().toISOString()
+        });
+        this.saveQueue(queue);
+    },
+
+    async init() {
+        this.setupListeners();
+        await this.checkConnectionAndSync();
+        this.startPolling();
+    },
+
+    setupListeners() {
+        window.addEventListener("online", async () => {
+            this.isOnline = true;
+            this.updateStatusBadge();
+            showToast("Conexión a internet restablecida. Sincronizando datos...", "info");
+            await this.processQueue();
+            await this.fetchUpdates();
+        });
+
+        window.addEventListener("offline", () => {
+            this.isOnline = false;
+            this.updateStatusBadge();
+            showToast("Sin conexión a internet. Todas las ventas se guardan en tu equipo y se subirán solas al volver la luz/red.", "warning");
+        });
+
+        window.addEventListener("focus", () => {
+            if (this.isOnline) {
+                this.checkConnectionAndSync();
+            }
+        });
+
+        // Al hacer clic en la insignia, explicar el estado
+        const badge = document.getElementById("cloud-sync-badge");
+        if (badge) {
+            badge.style.cursor = "pointer";
+            badge.addEventListener("click", () => {
+                const q = this.getQueue().length;
+                if (!this.isOnline) {
+                    showToast(`Modo Sin Internet: Tienes ${q} operaciones guardadas localmente. Se subirán solas cuando vuelva la red.`, "warning");
+                } else if (this.isCloudConnected) {
+                    showToast("🟢 Conectado en vivo a Neon Postgres. Tu celular y laptop están sincronizados.", "success");
+                } else {
+                    showToast("Operando en modo local (sin base de datos en la nube).", "info");
+                }
+            });
+        }
+    },
+
+    updateStatusBadge() {
+        const badge = document.getElementById("cloud-sync-badge");
+        if (!badge) return;
+
+        const queueCount = this.getQueue().length;
+
+        if (!this.isOnline) {
+            badge.className = "cloud-sync-badge offline";
+            badge.innerHTML = `<span class="status-dot warning"></span><span>Sin conexión (${queueCount > 0 ? queueCount + ' guardadas' : 'Local'})</span>`;
+            badge.title = "Operando sin internet. Tus ventas se guardan seguras en el equipo.";
+        } else if (queueCount > 0) {
+            badge.className = "cloud-sync-badge offline";
+            badge.innerHTML = `<span class="status-dot warning"></span><span>Subiendo ${queueCount} operaciones...</span>`;
+            badge.title = "Sincronizando operaciones pendientes con Neon Postgres...";
+        } else if (this.isCloudConnected) {
+            badge.className = "cloud-sync-badge online";
+            badge.innerHTML = '<span class="status-dot success"></span><span>Nube Neon (En vivo)</span>';
+            badge.title = "Conectado a Neon Postgres. Todo sincronizado en vivo.";
+        } else {
+            badge.className = "cloud-sync-badge local";
+            badge.innerHTML = '<span class="status-dot neutral"></span><span>Modo Local</span>';
+            badge.title = "Operando con almacenamiento local.";
+        }
+    },
+
+    async checkConnectionAndSync() {
+        if (!this.isOnline) {
+            this.updateStatusBadge();
+            return;
+        }
+
+        try {
+            const res = await fetch("/api/data", { method: "GET", cache: "no-store" });
+            if (!res.ok) {
+                this.isCloudConnected = false;
+                this.updateStatusBadge();
+                return;
+            }
+            const json = await res.json();
+
+            if (json.connected) {
+                this.isCloudConnected = true;
+
+                // Primero subir cualquier venta guardada durante el corte de luz
+                await this.processQueue();
+
+                const hasCloudProducts = Array.isArray(json.data.products) && json.data.products.length > 0;
+                const hasLocalProducts = Array.isArray(appState.products) && appState.products.length > 0;
+
+                if (!hasCloudProducts && hasLocalProducts) {
+                    console.log("Sembrando datos iniciales en Neon Postgres...");
+                    await this.pushFullState(appState);
+                } else if (hasCloudProducts) {
+                    const queue = this.getQueue();
+                    if (queue.length === 0) {
+                        appState = {
+                            products: json.data.products || [],
+                            transactions: json.data.transactions || [],
+                            stockEntries: json.data.stockEntries || [],
+                            loans: json.data.loans || [],
+                            categories: json.data.categories || ["Ropa", "Calzado", "Perfumes", "Accesorios", "Otros"]
+                        };
+                        saveState();
+                        refreshActiveView();
+                    }
+                }
+            } else {
+                this.isCloudConnected = false;
+            }
+            this.updateStatusBadge();
+        } catch (e) {
+            this.isCloudConnected = false;
+            this.updateStatusBadge();
+        }
+    },
+
+    async processQueue() {
+        let queue = this.getQueue();
+        if (queue.length === 0 || !this.isOnline || !this.isCloudConnected) return;
+
+        const totalToSync = queue.length;
+        let syncedCount = 0;
+        const failedItems = [];
+
+        for (const item of queue) {
+            try {
+                let success = false;
+                if (item.action === "sale") {
+                    const res = await fetch("/api/sale", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
+                } else if (item.action === "expense") {
+                    const res = await fetch("/api/expense", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
+                } else if (item.action === "product") {
+                    const res = await fetch("/api/product", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
+                } else if (item.action === "deleteProduct") {
+                    const res = await fetch("/api/product", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
+                } else if (item.action === "restock") {
+                    const res = await fetch("/api/restock", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
+                } else if (item.action === "loan") {
+                    const res = await fetch("/api/loan", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
+                } else if (item.action === "deleteLoan") {
+                    const res = await fetch("/api/loan", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
+                }
+
+                if (success) {
+                    syncedCount++;
+                } else {
+                    failedItems.push(item);
+                }
+            } catch (err) {
+                failedItems.push(item);
+            }
+        }
+
+        this.saveQueue(failedItems);
+
+        if (syncedCount > 0) {
+            showToast(`¡Conexión restaurada! Se sincronizaron ${syncedCount} operaciones con la nube sin pérdida de datos.`, "success");
+            await this.fetchUpdates();
+        }
+    },
+
+    async fetchUpdates() {
+        if (this.isSyncing || !this.isCloudConnected || !this.isOnline) return;
+        const queue = this.getQueue();
+        if (queue.length > 0) {
+            await this.processQueue();
+            return;
+        }
+
+        this.isSyncing = true;
+        try {
+            const res = await fetch("/api/data", { method: "GET", cache: "no-store" });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.connected && json.data) {
+                    appState = {
+                        products: json.data.products || [],
+                        transactions: json.data.transactions || [],
+                        stockEntries: json.data.stockEntries || [],
+                        loans: json.data.loans || [],
+                        categories: json.data.categories || appState.categories
+                    };
+                    saveState();
+                    refreshActiveView();
+                }
+            }
+        } catch (e) {
+            // Silencioso
+        } finally {
+            this.isSyncing = false;
+        }
+    },
+
+    startPolling() {
+        if (this.pollInterval) clearInterval(this.pollInterval);
+        this.pollInterval = setInterval(() => {
+            if (this.isOnline && this.isCloudConnected && !document.hidden) {
+                this.fetchUpdates();
+            }
+        }, 10000);
+    },
+
+    async pushFullState(state) {
+        try {
+            const res = await fetch("/api/data", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(state)
+            });
+            return res.ok;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    async recordSale(txData) {
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("sale", txData);
+            return;
+        }
+        try {
+            const res = await fetch("/api/sale", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(txData)
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            console.warn("Fallo de red, guardando venta en cola offline:", e);
+            this.addToQueue("sale", txData);
+        }
+    },
+
+    async recordExpense(txData) {
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("expense", txData);
+            return;
+        }
+        try {
+            const res = await fetch("/api/expense", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(txData)
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            console.warn("Fallo de red, guardando gasto en cola offline:", e);
+            this.addToQueue("expense", txData);
+        }
+    },
+
+    async saveProduct(prodData) {
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("product", prodData);
+            return;
+        }
+        try {
+            const res = await fetch("/api/product", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(prodData)
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            this.addToQueue("product", prodData);
+        }
+    },
+
+    async deleteProduct(prodId) {
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("deleteProduct", { id: prodId });
+            return;
+        }
+        try {
+            const res = await fetch("/api/product", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: prodId })
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            this.addToQueue("deleteProduct", { id: prodId });
+        }
+    },
+
+    async recordRestock(entry, expenseTx) {
+        const payload = { entry, expenseTx };
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("restock", payload);
+            return;
+        }
+        try {
+            const res = await fetch("/api/restock", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            this.addToQueue("restock", payload);
+        }
+    },
+
+    async saveLoan(loanData) {
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("loan", loanData);
+            return;
+        }
+        try {
+            const res = await fetch("/api/loan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(loanData)
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            this.addToQueue("loan", loanData);
+        }
+    },
+
+    async deleteLoan(loanId) {
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("deleteLoan", { id: loanId });
+            return;
+        }
+        try {
+            const res = await fetch("/api/loan", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: loanId })
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            this.addToQueue("deleteLoan", { id: loanId });
+        }
+    }
+};
+
+
 function initApp() {
     // 1. Cargar Datos
     loadState();
