@@ -1901,19 +1901,21 @@ function renderInventory() {
             <td class="text-center" data-label="Estado">
                 <span class="stock-pill ${stockClass}">${stockLabel}</span>
             </td>
-            <td class="table-actions-cell" data-label="Acciones">
-                <button class="btn-sm-icon btn-sell" onclick="handleQuickSale('${p.id}')" title="Registrar venta de este producto" ${p.stock <= 0 ? 'disabled' : ''}>
-                    <i data-lucide="shopping-cart"></i>
-                </button>
-                <button class="btn-sm-icon btn-restock" onclick="handleQuickRestock('${p.id}')" title="Reabastecer stock de este producto">
-                    <i data-lucide="plus"></i>
-                </button>
-                <button class="btn-sm-icon" onclick="handleEditProduct('${p.id}')" title="Editar producto">
-                    <i data-lucide="edit-3"></i>
-                </button>
-                <button class="btn-sm-icon text-danger" onclick="handleDeleteProduct('${p.id}')" title="Eliminar producto">
-                    <i data-lucide="trash-2"></i>
-                </button>
+            <td class="table-actions-cell text-right" data-label="Acciones">
+                <div class="table-actions-wrap">
+                    <button class="btn-sm-icon btn-sell" onclick="handleQuickSale('${p.id}')" title="Registrar venta de este producto" ${p.stock <= 0 ? 'disabled' : ''}>
+                        <i data-lucide="shopping-cart"></i>
+                    </button>
+                    <button class="btn-sm-icon btn-restock" onclick="handleQuickRestock('${p.id}')" title="Reabastecer stock de este producto">
+                        <i data-lucide="plus"></i>
+                    </button>
+                    <button class="btn-sm-icon" onclick="handleEditProduct('${p.id}')" title="Editar producto">
+                        <i data-lucide="edit-3"></i>
+                    </button>
+                    <button class="btn-sm-icon text-danger" onclick="handleDeleteProduct('${p.id}')" title="Eliminar producto">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
@@ -2193,13 +2195,15 @@ function renderProductHistory() {
             </td>
             <td class="text-right font-medium" data-label="P. Costo">${formatCurrency(entry.costPrice)}</td>
             <td class="text-center font-bold" data-label="Stock Actual">${currentStockDisplay}</td>
-            <td class="table-actions-cell" data-label="Acciones">
-                <button class="btn-sm-icon" onclick="handleEditStockEntry('${entry.id}')" title="Corregir equivocación en este ingreso">
-                    <i data-lucide="edit-3"></i>
-                </button>
-                <button class="btn-sm-icon text-danger" onclick="handleDeleteStockEntry('${entry.id}')" title="Anular este ingreso y descontar solo esta cantidad (-${entry.qty} u.)">
-                    <i data-lucide="trash-2"></i>
-                </button>
+            <td class="table-actions-cell text-right" data-label="Acciones">
+                <div class="table-actions-wrap">
+                    <button class="btn-sm-icon" onclick="handleEditStockEntry('${entry.id}')" title="Corregir equivocación en este ingreso">
+                        <i data-lucide="edit-3"></i>
+                    </button>
+                    <button class="btn-sm-icon text-danger" onclick="handleDeleteStockEntry('${entry.id}')" title="Anular este ingreso y descontar solo esta cantidad (-${entry.qty} u.)">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
@@ -2514,10 +2518,12 @@ function renderTransactions() {
             <td class="text-right font-semibold ${isIncome ? 'text-success' : 'text-danger'}" data-label="Monto">
                 ${isIncome ? '+' : '-'}${formatCurrency(t.value)}
             </td>
-            <td class="table-actions-cell">
-                <button class="btn-sm-icon text-danger" onclick="handleDeleteTransaction('${t.id}')" title="Eliminar movimiento">
-                    <i data-lucide="trash-2"></i>
-                </button>
+            <td class="table-actions-cell text-right" data-label="Acciones">
+                <div class="table-actions-wrap">
+                    <button class="btn-sm-icon text-danger" onclick="handleDeleteTransaction('${t.id}')" title="Eliminar movimiento">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);

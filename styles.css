@@ -833,6 +833,7 @@ body:not(.dark-theme) select option {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border-color);
     white-space: nowrap;
+    vertical-align: middle;
 }
 
 .data-table th {
@@ -898,12 +899,18 @@ body.light-theme .data-table tbody tr:hover {
 .stock-empty { background-color: var(--danger-bg); color: var(--danger); }
 
 /* Acciones en Tabla */
-.table-actions-cell {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
+.data-table td.table-actions-cell {
+    text-align: right;
+    vertical-align: middle;
     white-space: nowrap;
+}
+
+.table-actions-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    vertical-align: middle;
 }
 
 /* ==========================================
@@ -2226,12 +2233,17 @@ body.light-theme .modal-content {
     white-space: nowrap;
 }
 
-#inventory-table .table-actions-cell {
-    display: flex;
+#inventory-table td.table-actions-cell {
+    text-align: right;
+    vertical-align: middle;
+}
+
+#inventory-table .table-actions-wrap {
+    display: inline-flex;
     align-items: center;
     justify-content: flex-end;
     gap: 4px;
-    white-space: nowrap;
+    vertical-align: middle;
 }
 
 #inventory-table .table-actions-cell .btn-sm-icon {
