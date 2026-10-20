@@ -2,7 +2,7 @@ const { getSql, ensureTables, getConnectionString } = require('./db');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -22,6 +22,11 @@ module.exports = async function handler(req, res) {
 
   try {
     await ensureTables();
+
+    if (req.method === 'DELETE') {
+      await sql`TRUNCATE TABLE silvio_transactions, silvio_stock_entries, silvio_loans, silvio_products CASCADE;`;
+      return res.status(200).json({ success: true, message: 'Base de datos en Neon vaciada exitosamente' });
+    }
 
     if (req.method === 'GET') {
       const [products, transactions, stockEntries, loans, categoriesMeta] = await Promise.all([

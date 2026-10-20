@@ -359,6 +359,13 @@ const CloudSync = {
                         body: JSON.stringify(item.payload)
                     });
                     success = res.ok;
+                } else if (item.action === "deleteTransaction") {
+                    const res = await fetch("/api/transaction", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
                 }
 
                 if (success) {
@@ -553,6 +560,34 @@ const CloudSync = {
         } catch (e) {
             this.addToQueue("deleteLoan", { id: loanId });
         }
+    },
+
+    async deleteTransaction(txId) {
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("deleteTransaction", { id: txId });
+            return;
+        }
+        try {
+            const res = await fetch("/api/transaction", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: txId })
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            this.addToQueue("deleteTransaction", { id: txId });
+        }
+    },
+
+    async clearCloudDatabase() {
+        this.saveQueue([]);
+        try {
+            const res = await fetch("/api/data", { method: "DELETE" });
+            return res.ok;
+        } catch (e) {
+            console.warn("Fallo vaciando base de datos en Neon:", e);
+            return false;
+        }
     }
 };
 
@@ -619,9 +654,11 @@ function loadState() {
             console.error("Error cargando base de datos guardada, inicializando vacía.", e);
             loadDemoData(false);
         }
-    } else {
-        // Cargar por primera vez con datos de demostración
+    } else if (localStorage.getItem("silvio_db_cleared") !== "true") {
+        // Cargar por primera vez con datos de demostración si no se ha vaciado
         loadDemoData(false);
+    } else {
+        appState = { products: [], transactions: [], loans: [], stockEntries: [], categories: ["Ropa", "Calzado", "Perfumes", "Accesorios", "Otros"] };
     }
 }
 
@@ -653,14 +690,20 @@ function loadDemoData(notify = true) {
 
 async function clearDatabase() {
     if (!await requirePassword("borrar todos los datos del sistema")) return;
-    if (await showConfirm("Borrar Base de Datos", "¿Estás absolutamente seguro de borrar todos los datos? Esto borrará el inventario y todo el historial financiero.", "Borrar Todo", "Cancelar")) {
+    if (await showConfirm("Borrar Base de Datos", "¿Estás absolutamente seguro de borrar todos los datos? Esto borrará el inventario y todo el historial financiero tanto de este equipo como de la nube.", "Borrar Todo", "Cancelar")) {
         appState.products = [];
         appState.transactions = [];
         appState.loans = [];
         appState.stockEntries = [];
+        localStorage.setItem("silvio_db_cleared", "true");
         saveState();
+        
+        if (typeof CloudSync !== 'undefined' && CloudSync.clearCloudDatabase) {
+            await CloudSync.clearCloudDatabase();
+        }
+        
         refreshActiveView();
-        showToast("Base de datos vaciada.", "info");
+        showToast("Base de datos vaciada completamente (local y nube).", "info");
     }
 }
 
@@ -2601,6 +2644,9 @@ async function handleDeleteTransaction(txId) {
 
         appState.transactions.splice(txIndex, 1);
         saveState();
+        if (typeof CloudSync !== 'undefined' && CloudSync.deleteTransaction) {
+            CloudSync.deleteTransaction(txId);
+        }
         renderTransactions();
         showToast("Movimiento financiero eliminado.", "info");
     }
