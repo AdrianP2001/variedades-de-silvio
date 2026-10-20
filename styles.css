@@ -2191,12 +2191,17 @@ body.light-theme .modal-content {
 }
 
 #inventory-table td.product-cell {
+    white-space: normal;
+    min-width: 140px;
     max-width: 220px;
+    line-height: 1.3;
 }
 
 #inventory-table td.product-cell .product-title-td {
+    white-space: normal;
     font-size: 0.88rem;
     font-weight: 600;
+    line-height: 1.25;
 }
 
 #inventory-table .stock-pill {
@@ -2232,7 +2237,7 @@ body.light-theme .modal-content {
     height: 14px;
 }
 
-/* Reducción proporcional y sutil en pantallas de laptop (<= 1440px) */
+/* Reducción proporcional y calibrada en pantallas de laptop (<= 1440px) */
 @media (max-width: 1440px) {
     :root {
         --sidebar-width: 235px;
@@ -2262,6 +2267,10 @@ body.light-theme .modal-content {
         font-size: 0.82rem;
     }
 
+    #inventory-table {
+        zoom: 0.91;
+    }
+
     #inventory-table th,
     #inventory-table td {
         padding: 8px 6px;
@@ -2273,7 +2282,9 @@ body.light-theme .modal-content {
     }
 
     #inventory-table td.product-cell {
-        max-width: 180px;
+        white-space: normal;
+        min-width: 140px;
+        max-width: 195px;
     }
 
     #inventory-table .table-actions-cell .btn-sm-icon {
