@@ -51,7 +51,8 @@ const DEMO_TRANSACTIONS = [
 let appState = {
     products: [],
     transactions: [],
-    loans: []
+    loans: [],
+    stockEntries: []
 };
 
 let activeDashModule = 'store';
@@ -160,6 +161,7 @@ function initApp() {
     setupQuickActionModals();
     setupThemeToggle();
     setupProductHistoryListeners();
+    setupEditStockEntryForm();
 
     // 5. Botón cerrar sesión
     document.getElementById("btn-logout").addEventListener("click", async () => {
@@ -187,6 +189,7 @@ function loadState() {
             if (!appState.products) appState.products = [];
             if (!appState.transactions) appState.transactions = [];
             if (!appState.loans) appState.loans = [];
+            if (!appState.stockEntries) appState.stockEntries = [];
 
             // Filtrar y eliminar transacciones de préstamos registradas previamente en la Caja de la tienda
             appState.transactions = appState.transactions.filter(t => {
@@ -212,6 +215,18 @@ function saveState() {
 function loadDemoData(notify = true) {
     appState.products = JSON.parse(JSON.stringify(DEMO_PRODUCTS));
     appState.transactions = JSON.parse(JSON.stringify(DEMO_TRANSACTIONS));
+    appState.stockEntries = DEMO_PRODUCTS.map(p => ({
+        id: "entry-" + p.id,
+        type: "nuevo_producto",
+        productId: p.id,
+        productName: p.name,
+        category: p.category,
+        qty: p.stock,
+        costPrice: p.costPrice,
+        sellingPrice: p.sellingPrice,
+        date: new Date().toISOString(),
+        txId: null
+    }));
     saveState();
     if (notify) {
         showToast("Datos de demostración cargados exitosamente.", "success");
@@ -225,6 +240,7 @@ async function clearDatabase() {
         appState.products = [];
         appState.transactions = [];
         appState.loans = [];
+        appState.stockEntries = [];
         saveState();
         refreshActiveView();
         showToast("Base de datos vaciada.", "info");
@@ -587,6 +603,23 @@ function setupFormHandlers() {
                 createdAt: now.toISOString()
             };
             appState.products.push(newProduct);
+
+            // Registrar en historial de ingresos de mercancía
+            if (!appState.stockEntries) appState.stockEntries = [];
+            const entry = {
+                id: generateId("entry"),
+                type: "nuevo_producto",
+                productId: newProduct.id,
+                productName: newProduct.name,
+                category: newProduct.category,
+                qty: stock,
+                costPrice: costPrice,
+                sellingPrice: sellingPrice,
+                date: now.toISOString(),
+                txId: null
+            };
+            appState.stockEntries.unshift(entry);
+
             showToast("Producto añadido al inventario.", "success");
         }
 
@@ -648,10 +681,12 @@ function setupFormHandlers() {
             
             product.stock += qty; // Aumentar stock en inventario
             
+            let newTxId = null;
             if (choice === "expense") {
                 // Registrar egreso por compra de mercancía
+                newTxId = generateId("tx");
                 const newTx = {
-                    id: generateId("tx"),
+                    id: newTxId,
                     date: date,
                     type: "egreso",
                     description: `REABASTECIMIENTO: ${product.name} (x${qty})`,
@@ -662,10 +697,30 @@ function setupFormHandlers() {
                 };
                 appState.transactions.push(newTx);
             }
+
+            // Registrar en historial de ingresos de mercancía
+            if (!appState.stockEntries) appState.stockEntries = [];
+            const now = new Date();
+            const entry = {
+                id: generateId("entry"),
+                type: "reabastecimiento",
+                productId: prodId,
+                productName: product.name,
+                category: product.category,
+                qty: qty,
+                costPrice: costPrice,
+                sellingPrice: product.sellingPrice,
+                date: now.toISOString(),
+                txId: newTxId
+            };
+            appState.stockEntries.unshift(entry);
             
             saveState();
             closeModal("restock");
             refreshActiveView();
+            if (document.getElementById("modal-product-history")?.classList.contains("active")) {
+                renderProductHistory();
+            }
             
             if (choice === "expense") {
                 showToast("Stock reabastecido y gasto registrado.", "success");
@@ -1445,6 +1500,9 @@ async function handleDeleteProduct(productId) {
     if (!await requirePassword(`eliminar el producto "${product.name}"`)) return;
     if (await showConfirm("Eliminar Producto", `¿Estás seguro de eliminar el producto "${product.name}" del inventario?`, "Eliminar", "Cancelar")) {
         appState.products.splice(productIndex, 1);
+        if (appState.stockEntries) {
+            appState.stockEntries = appState.stockEntries.filter(e => e.productId !== productId);
+        }
         saveState();
         renderInventory();
         if (document.getElementById("modal-product-history")?.classList.contains("active")) {
@@ -1454,7 +1512,46 @@ async function handleDeleteProduct(productId) {
     }
 }
 
-// --- HISTORIAL DE PRODUCTOS AGREGADOS (ALTAS Y CONTROL DE ERRORES) ---
+// --- HISTORIAL DE PRODUCTOS E INGRESOS DE MERCANCÍA ---
+function ensureStockEntriesInitialized() {
+    if (!appState.stockEntries) appState.stockEntries = [];
+    if (appState.stockEntries.length === 0 && appState.products.length > 0) {
+        appState.products.forEach(p => {
+            appState.stockEntries.push({
+                id: "entry-" + p.id,
+                type: "nuevo_producto",
+                productId: p.id,
+                productName: p.name,
+                category: p.category,
+                qty: p.initialStock !== undefined ? p.initialStock : p.stock,
+                costPrice: p.costPrice,
+                sellingPrice: p.sellingPrice,
+                date: p.createdAt || new Date().toISOString(),
+                txId: null
+            });
+        });
+
+        appState.transactions.forEach(t => {
+            if (t.productId && t.description && t.description.includes("REABASTECIMIENTO")) {
+                const prod = appState.products.find(p => p.id === t.productId);
+                appState.stockEntries.push({
+                    id: "entry-" + t.id,
+                    type: "reabastecimiento",
+                    productId: t.productId,
+                    productName: prod ? prod.name : t.description.replace("REABASTECIMIENTO: ", "").replace(/\(x\d+\)/, "").trim(),
+                    category: prod ? prod.category : t.category,
+                    qty: t.qty || 1,
+                    costPrice: t.qty ? (t.value / t.qty) : t.value,
+                    sellingPrice: prod ? prod.sellingPrice : 0,
+                    date: t.date + "T12:00:00.000Z",
+                    txId: t.id
+                });
+            }
+        });
+        saveState();
+    }
+}
+
 function setupProductHistoryListeners() {
     const searchInput = document.getElementById("product-history-search");
     const periodSelect = document.getElementById("product-history-period");
@@ -1475,6 +1572,7 @@ function renderProductHistory() {
     if (!tbody) return;
 
     tbody.innerHTML = "";
+    ensureStockEntriesInitialized();
 
     const searchVal = (document.getElementById("product-history-search")?.value || "").toLowerCase().trim();
     const periodVal = document.getElementById("product-history-period")?.value || "all";
@@ -1484,38 +1582,29 @@ function renderProductHistory() {
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const currentMonthPrefix = now.toISOString().substring(0, 7);
 
-    // Clonar lista de productos e invertir orden cronológico
-    let list = [...appState.products].map((p, idx) => ({ ...p, originalIndex: idx }));
-
-    list.sort((a, b) => {
-        if (a.createdAt && b.createdAt) {
-            return new Date(b.createdAt) - new Date(a.createdAt);
-        }
-        if (a.createdAt && !b.createdAt) return -1;
-        if (!a.createdAt && b.createdAt) return 1;
-        return b.originalIndex - a.originalIndex;
-    });
+    // Clonar lista de entradas ordenadas cronológicamente (más recientes primero)
+    let list = [...appState.stockEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     // Filtro por periodo
     if (periodVal === "today") {
-        list = list.filter(p => p.createdAt && p.createdAt.substring(0, 10) === todayStr);
+        list = list.filter(e => e.date && e.date.substring(0, 10) === todayStr);
     } else if (periodVal === "week") {
-        list = list.filter(p => p.createdAt && new Date(p.createdAt) >= oneWeekAgo);
+        list = list.filter(e => e.date && new Date(e.date) >= oneWeekAgo);
     } else if (periodVal === "month") {
-        list = list.filter(p => p.createdAt && p.createdAt.substring(0, 7) === currentMonthPrefix);
+        list = list.filter(e => e.date && e.date.substring(0, 7) === currentMonthPrefix);
     }
 
     // Filtro por búsqueda
     if (searchVal) {
-        list = list.filter(p => 
-            p.name.toLowerCase().includes(searchVal) ||
-            p.category.toLowerCase().includes(searchVal) ||
-            (p.id && p.id.toLowerCase().includes(searchVal))
+        list = list.filter(e => 
+            (e.productName && e.productName.toLowerCase().includes(searchVal)) ||
+            (e.category && e.category.toLowerCase().includes(searchVal)) ||
+            (e.productId && e.productId.toLowerCase().includes(searchVal))
         );
     }
 
     if (countEl) {
-        countEl.textContent = `Mostrando ${list.length} de ${appState.products.length} productos registrados`;
+        countEl.textContent = `Mostrando ${list.length} de ${appState.stockEntries.length} ingresos registrados`;
     }
 
     if (list.length === 0) {
@@ -1523,7 +1612,7 @@ function renderProductHistory() {
             <tr>
                 <td colspan="8" class="text-center text-muted" style="padding: 36px 16px;">
                     <i data-lucide="package-search" style="width: 36px; height: 36px; margin: 0 auto 10px; display: block; opacity: 0.4;"></i>
-                    <p style="margin: 0; font-size: 0.9rem;">No se encontraron productos agregados para el filtro seleccionado.</p>
+                    <p style="margin: 0; font-size: 0.9rem;">No se encontraron ingresos registrados para el filtro seleccionado.</p>
                 </td>
             </tr>
         `;
@@ -1531,13 +1620,14 @@ function renderProductHistory() {
         return;
     }
 
-    list.forEach(p => {
-        let dateFormatted = "Registro Base";
+    list.forEach(entry => {
+        const prod = appState.products.find(p => p.id === entry.productId);
+        let dateFormatted = "Registro Inicial";
         let isToday = false;
 
-        if (p.createdAt) {
-            const d = new Date(p.createdAt);
-            const pDateStr = p.createdAt.substring(0, 10);
+        if (entry.date) {
+            const d = new Date(entry.date);
+            const pDateStr = entry.date.substring(0, 10);
             const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
             
             if (pDateStr === todayStr) {
@@ -1551,8 +1641,8 @@ function renderProductHistory() {
             }
         }
 
-        const initialStockDisplay = p.initialStock !== undefined ? p.initialStock : p.stock;
-        const markup = p.costPrice > 0 ? (((p.sellingPrice - p.costPrice) / p.costPrice) * 100).toFixed(0) : '0';
+        const isNew = entry.type === "nuevo_producto";
+        const currentStockDisplay = prod ? `${prod.stock} u.` : '<span class="text-muted">No en catálogo</span>';
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -1560,28 +1650,32 @@ function renderProductHistory() {
                 <div style="font-weight: 500; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
                     <i data-lucide="calendar" style="width: 14px; height: 14px; color: var(--primary);"></i>
                     <span>${dateFormatted}</span>
-                    ${isToday ? '<span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;">Reciente</span>' : ''}
+                    ${isToday ? '<span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;">Hoy</span>' : ''}
                 </div>
             </td>
+            <td data-label="Tipo Ingreso">
+                <span class="badge ${isNew ? 'badge-info' : 'badge-success'}" style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
+                    <i data-lucide="${isNew ? 'package-plus' : 'plus-circle'}" style="width: 12px; height: 12px;"></i>
+                    ${isNew ? 'Alta Inicial' : 'Reposición'}
+                </span>
+            </td>
             <td class="product-cell" data-label="Producto">
-                <div style="font-weight: 600; color: #fff;" class="product-title-td">${p.name}</div>
-                <div style="font-size: 0.75rem;" class="text-muted">${p.id}</div>
+                <div style="font-weight: 600; color: #fff;" class="product-title-td">${entry.productName}</div>
+                <div style="font-size: 0.75rem;" class="text-muted">${entry.productId}</div>
             </td>
             <td data-label="Categoría">
-                <span class="badge" style="background: rgba(255,255,255,0.06); font-size: 0.8rem; font-weight: 500;">${p.category}</span>
+                <span class="badge" style="background: rgba(255,255,255,0.06); font-size: 0.8rem; font-weight: 500;">${entry.category || (prod ? prod.category : 'Varios')}</span>
             </td>
-            <td class="text-right font-medium" data-label="P. Costo">${formatCurrency(p.costPrice)}</td>
-            <td class="text-right font-medium text-success" data-label="P. Venta">
-                ${formatCurrency(p.sellingPrice)}
-                <div style="font-size: 0.7rem; color: var(--text-muted);">${markup}% mrg</div>
+            <td class="text-center font-bold" data-label="Cant. Ingresada" style="color: var(--primary); font-size: 1rem;">
+                +${entry.qty} u.
             </td>
-            <td class="text-center font-bold" data-label="Stock Inicial" style="color: var(--primary); font-size: 0.95rem;">${initialStockDisplay}</td>
-            <td class="text-center font-bold" data-label="Stock Actual">${p.stock}</td>
+            <td class="text-right font-medium" data-label="P. Costo">${formatCurrency(entry.costPrice)}</td>
+            <td class="text-center font-bold" data-label="Stock Actual">${currentStockDisplay}</td>
             <td class="table-actions-cell" data-label="Acciones">
-                <button class="btn-sm-icon" onclick="handleEditProductFromHistory('${p.id}')" title="Editar o corregir equivocación de ingreso">
+                <button class="btn-sm-icon" onclick="handleEditStockEntry('${entry.id}')" title="Corregir equivocación en este ingreso">
                     <i data-lucide="edit-3"></i>
                 </button>
-                <button class="btn-sm-icon text-danger" onclick="handleDeleteProductFromHistory('${p.id}')" title="Eliminar si se ingresó por error">
+                <button class="btn-sm-icon text-danger" onclick="handleDeleteStockEntry('${entry.id}')" title="Anular este ingreso y descontar solo esta cantidad (-${entry.qty} u.)">
                     <i data-lucide="trash-2"></i>
                 </button>
             </td>
@@ -1592,6 +1686,240 @@ function renderProductHistory() {
     lucide.createIcons();
 }
 
+function showDeleteEntryChoiceModal(entry, product) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById("modal-delete-entry");
+        const descEl = document.getElementById("delete-entry-desc");
+        const btnQty = document.getElementById("btn-delete-entry-qty");
+        const btnFull = document.getElementById("btn-delete-entry-full");
+        const btnCancel = document.getElementById("btn-delete-entry-cancel");
+        const btnClose = document.getElementById("btn-delete-entry-close");
+        const fullNote = document.getElementById("delete-entry-full-note");
+
+        if (!modal) {
+            const res = window.confirm(`¿Deseas descontar las ${entry.qty} unidades de "${product.name}"?`);
+            resolve(res ? "qty" : "cancel");
+            return;
+        }
+
+        const isNewProduct = entry.type === "nuevo_producto";
+        const newStockAfterQty = Math.max(0, product.stock - entry.qty);
+
+        if (isNewProduct) {
+            descEl.innerHTML = `Estás a punto de anular el ingreso inicial de <strong>${entry.qty} unidades</strong> del producto <strong>"${product.name}"</strong> (Stock actual: ${product.stock} u.).<br><br>¿Cómo deseas proceder?`;
+            btnQty.textContent = `Descontar solo ${entry.qty} u.`;
+            btnFull.style.display = "inline-flex";
+            if (fullNote) fullNote.style.display = "block";
+        } else {
+            descEl.innerHTML = `Estás a punto de anular el reabastecimiento de <strong>+${entry.qty} unidades</strong> de <strong>"${product.name}"</strong>.<br><br>Al confirmar se restarán las <strong>${entry.qty} unidades</strong> del inventario (pasará de ${product.stock} a <strong>${newStockAfterQty} u.</strong>) y el producto seguirá existiendo en el catálogo.`;
+            btnQty.textContent = `Sí, descontar ${entry.qty} unidades`;
+            btnFull.style.display = "none";
+            if (fullNote) fullNote.style.display = "none";
+        }
+
+        modal.classList.add("active");
+        lucide.createIcons();
+
+        const cleanup = (result) => {
+            modal.classList.remove("active");
+            btnQty.removeEventListener("click", onQty);
+            btnFull.removeEventListener("click", onFull);
+            btnCancel.removeEventListener("click", onCancel);
+            if (btnClose) btnClose.removeEventListener("click", onCancel);
+            resolve(result);
+        };
+
+        const onQty = () => cleanup("qty");
+        const onFull = () => cleanup("full");
+        const onCancel = () => cleanup("cancel");
+
+        btnQty.addEventListener("click", onQty);
+        btnFull.addEventListener("click", onFull);
+        btnCancel.addEventListener("click", onCancel);
+        if (btnClose) btnClose.addEventListener("click", onCancel);
+    });
+}
+
+async function handleDeleteStockEntry(entryId) {
+    if (!appState.stockEntries) return;
+    const entryIndex = appState.stockEntries.findIndex(e => e.id === entryId);
+    if (entryIndex === -1) return;
+
+    const entry = appState.stockEntries[entryIndex];
+    const product = appState.products.find(p => p.id === entry.productId);
+
+    if (!product) {
+        // El producto ya no existe en el catálogo, simplemente quitar el registro del historial
+        appState.stockEntries.splice(entryIndex, 1);
+        saveState();
+        renderProductHistory();
+        showToast("Registro de ingreso eliminado.", "info");
+        return;
+    }
+
+    const choice = await showDeleteEntryChoiceModal(entry, product);
+    if (choice === "cancel") return;
+
+    if (choice === "qty") {
+        // Descontar ÚNICAMENTE la cantidad ingresada del stock del producto
+        product.stock = Math.max(0, product.stock - entry.qty);
+
+        // Si fue un reabastecimiento que generó gasto en caja, anular el egreso para reintegrar el dinero
+        if (entry.txId) {
+            const txIndex = appState.transactions.findIndex(t => t.id === entry.txId);
+            if (txIndex !== -1) {
+                appState.transactions.splice(txIndex, 1);
+            }
+        }
+
+        // Quitar la entrada del historial
+        appState.stockEntries.splice(entryIndex, 1);
+        saveState();
+        refreshActiveView();
+        renderProductHistory();
+        showToast(`Se descontaron ${entry.qty} u. de "${product.name}". Nuevo stock: ${product.stock} u.`, "success");
+    } else if (choice === "full") {
+        // Opción explícita para eliminar el producto por completo si el usuario así lo solicita
+        if (!await requirePassword(`eliminar el producto "${product.name}" completamente`)) return;
+        
+        // Eliminar producto de inventario
+        const pIdx = appState.products.findIndex(p => p.id === product.id);
+        if (pIdx !== -1) appState.products.splice(pIdx, 1);
+
+        // Eliminar todas las entradas asociadas a este producto
+        appState.stockEntries = appState.stockEntries.filter(e => e.productId !== product.id);
+        
+        saveState();
+        refreshActiveView();
+        renderProductHistory();
+        showToast(`Producto "${product.name}" eliminado completamente.`, "info");
+    }
+}
+
+function handleEditStockEntry(entryId) {
+    openEditStockEntryModal(entryId);
+}
+
+function openEditStockEntryModal(entryId) {
+    if (!appState.stockEntries) return;
+    const entry = appState.stockEntries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const product = appState.products.find(p => p.id === entry.productId);
+    if (!product) {
+        showToast("El producto ya no existe en el inventario.", "warning");
+        return;
+    }
+
+    if (entry.type === "nuevo_producto") {
+        handleEditProductFromHistory(product.id);
+        return;
+    }
+
+    const modal = document.getElementById("modal-edit-stock-entry");
+    if (!modal) return;
+
+    document.getElementById("edit-entry-id").value = entry.id;
+    document.getElementById("edit-entry-product-name").textContent = product.name;
+    document.getElementById("edit-entry-old-qty").textContent = `${entry.qty} u.`;
+    document.getElementById("edit-entry-current-stock").textContent = `${product.stock} u.`;
+
+    const inputQty = document.getElementById("edit-entry-new-qty");
+    inputQty.value = entry.qty;
+
+    const summaryEl = document.getElementById("edit-entry-summary");
+    
+    function updateSummary() {
+        const newQty = parseInt(inputQty.value) || 0;
+        const diff = newQty - entry.qty;
+        const resultingStock = Math.max(0, product.stock + diff);
+        const sign = diff > 0 ? `+${diff}` : `${diff}`;
+        const diffColor = diff > 0 ? 'var(--success)' : (diff < 0 ? 'var(--warning)' : 'var(--text-muted)');
+
+        let expenseNotice = '';
+        if (entry.txId) {
+            const newCost = entry.costPrice * newQty;
+            expenseNotice = `<br><span style="font-size:0.8rem; color:var(--text-muted);">El egreso en Caja se ajustará automáticamente a: <strong>${formatCurrency(newCost)}</strong></span>`;
+        }
+
+        summaryEl.innerHTML = `
+            <div>Nuevo stock total resultante: <strong style="color: #fff; font-size: 1rem;">${resultingStock} u.</strong></div>
+            <div style="margin-top: 4px; font-size: 0.8rem; color: ${diffColor};">
+                Diferencia sobre el inventario: <strong>${sign} u.</strong>
+            </div>
+            ${expenseNotice}
+        `;
+    }
+
+    updateSummary();
+
+    const btnMinus = document.getElementById("btn-edit-entry-minus");
+    const btnPlus = document.getElementById("btn-edit-entry-plus");
+    
+    btnMinus.onclick = () => {
+        let val = parseInt(inputQty.value) || 1;
+        if (val > 1) {
+            inputQty.value = val - 1;
+            updateSummary();
+        }
+    };
+    
+    btnPlus.onclick = () => {
+        let val = parseInt(inputQty.value) || 0;
+        inputQty.value = val + 1;
+        updateSummary();
+    };
+
+    inputQty.oninput = updateSummary;
+
+    modal.classList.add("active");
+    lucide.createIcons();
+    inputQty.focus();
+    inputQty.select();
+}
+
+function setupEditStockEntryForm() {
+    const form = document.getElementById("form-edit-stock-entry");
+    if (!form) return;
+
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const entryId = document.getElementById("edit-entry-id").value;
+        const newQty = parseInt(document.getElementById("edit-entry-new-qty").value);
+
+        if (isNaN(newQty) || newQty <= 0) {
+            showToast("Por favor ingresa una cantidad válida mayor a 0.", "error");
+            return;
+        }
+
+        const entry = appState.stockEntries.find(e => e.id === entryId);
+        if (!entry) return;
+
+        const product = appState.products.find(p => p.id === entry.productId);
+        if (!product) return;
+
+        const diff = newQty - entry.qty;
+        product.stock = Math.max(0, product.stock + diff);
+        entry.qty = newQty;
+
+        // Si tenía transacción asociada de egreso, actualizar valor en Caja
+        if (entry.txId) {
+            const tx = appState.transactions.find(t => t.id === entry.txId);
+            if (tx) {
+                tx.qty = newQty;
+                tx.value = entry.costPrice * newQty;
+                tx.description = `REABASTECIMIENTO: ${product.name} (x${newQty})`;
+            }
+        }
+
+        saveState();
+        closeModal("edit-stock-entry");
+        refreshActiveView();
+        renderProductHistory();
+        showToast(`Cantidad de reabastecimiento actualizada a ${newQty} u.`, "success");
+    });
+}
+
 function handleEditProductFromHistory(productId) {
     handleEditProduct(productId);
     // Habilitar edición directa de stock para corrección rápida por error de tipeo
@@ -1600,13 +1928,6 @@ function handleEditProductFromHistory(productId) {
     document.getElementById("product-modal-title").innerHTML = `<i data-lucide="edit-3"></i> Corregir Producto Agregado`;
     document.getElementById("btn-save-product").textContent = "Guardar Corrección";
     lucide.createIcons();
-}
-
-async function handleDeleteProductFromHistory(productId) {
-    await handleDeleteProduct(productId);
-    if (document.getElementById("modal-product-history")?.classList.contains("active")) {
-        renderProductHistory();
-    }
 }
 
 // --- VISTA 3: CAJA Y TRANSACCIONES (RENDERING) ---

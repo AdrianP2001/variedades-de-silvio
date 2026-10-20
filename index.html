@@ -1003,11 +1003,11 @@
                         <thead>
                             <tr>
                                 <th>Fecha y Hora</th>
+                                <th>Tipo Ingreso</th>
                                 <th>Producto</th>
                                 <th>Categoría</th>
+                                <th class="text-center">Cant. Ingresada</th>
                                 <th class="text-right">P. Costo</th>
-                                <th class="text-right">P. Venta</th>
-                                <th class="text-center">Stock Inicial</th>
                                 <th class="text-center">Stock Actual</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
@@ -1019,9 +1019,85 @@
                 </div>
             </div>
             <div class="modal-footer" style="justify-content: space-between; align-items: center;">
-                <span class="text-muted" id="product-history-count" style="font-size: 0.85rem;">0 productos registrados</span>
+                <span class="text-muted" id="product-history-count" style="font-size: 0.85rem;">0 ingresos registrados</span>
                 <button type="button" class="btn btn-secondary modal-close">Cerrar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ANULAR O ELIMINAR INGRESO DE PRODUCTO -->
+    <div class="modal" id="modal-delete-entry">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h2><i data-lucide="help-circle" style="color: var(--warning);"></i> Corregir Ingreso de Mercancía</h2>
+                <button class="btn-close modal-close" id="btn-delete-entry-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px 24px;">
+                <p class="text-white mb-2" id="delete-entry-desc" style="font-size: 0.95rem; line-height: 1.5;"></p>
+                <div style="background: rgba(255,255,255,0.03); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin: 16px 0;">
+                    <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 8px;">
+                        <strong style="color: var(--warning);">• Descontar solo cantidad:</strong> Resta únicamente las unidades ingresadas del stock actual. El producto permanecerá en tu catálogo.
+                    </p>
+                    <p class="text-muted" id="delete-entry-full-note" style="font-size: 0.85rem; margin: 0;">
+                        <strong style="color: var(--danger);">• Eliminar producto completo:</strong> Elimina totalmente el producto de la base de datos (requiere contraseña).
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer" style="flex-wrap: wrap; gap: 8px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="btn-delete-entry-cancel">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="btn-delete-entry-qty">Descontar solo Cantidad</button>
+                <button type="button" class="btn btn-danger" id="btn-delete-entry-full">Eliminar Producto Completo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CORREGIR CANTIDAD DE INGRESO -->
+    <div class="modal" id="modal-edit-stock-entry">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2><i data-lucide="edit-3" style="color: var(--primary);"></i> Corregir Cantidad de Ingreso</h2>
+                <button class="btn-close modal-close" id="btn-edit-stock-close">&times;</button>
+            </div>
+            <form id="form-edit-stock-entry">
+                <input type="hidden" id="edit-entry-id">
+                <div class="modal-body" style="padding: 24px;">
+                    <p class="text-muted mb-3" style="font-size: 0.9rem;">
+                        Modifica la cantidad registrada para este ingreso de: <strong id="edit-entry-product-name" class="text-white"></strong>
+                    </p>
+
+                    <!-- Tarjetas de contexto de stock -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; text-align: center;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Ingresado en este lote</span>
+                            <span id="edit-entry-old-qty" style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">0 u.</span>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; text-align: center;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Stock Actual Total</span>
+                            <span id="edit-entry-current-stock" style="font-size: 1.25rem; font-weight: 700; color: #fff;">0 u.</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-entry-new-qty" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 8px;">
+                            Nueva Cantidad de este Lote
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button type="button" class="btn btn-secondary" id="btn-edit-entry-minus" style="padding: 10px 18px; font-weight: bold; font-size: 1.2rem;">-</button>
+                            <input type="number" id="edit-entry-new-qty" class="form-control text-center" min="1" step="1" required style="font-size: 1.3rem; font-weight: 700; color: var(--primary);">
+                            <button type="button" class="btn btn-secondary" id="btn-edit-entry-plus" style="padding: 10px 18px; font-weight: bold; font-size: 1.2rem;">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Resumen del ajuste resultante -->
+                    <div id="edit-entry-summary" style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 0.85rem; color: var(--text-main); margin-top: 16px;">
+                        <!-- Calculado dinámicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer" style="gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-edit-entry">Guardar Corrección</button>
+                </div>
+            </form>
         </div>
     </div>
 
