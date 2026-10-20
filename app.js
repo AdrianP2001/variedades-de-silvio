@@ -560,6 +560,11 @@ const CloudSync = {
 function initApp() {
     // 1. Cargar Datos
     loadState();
+
+    // Iniciar Sincronización en la Nube (Neon Postgres / Vercel)
+    if (typeof CloudSync !== 'undefined' && CloudSync.init) {
+        CloudSync.init();
+    }
     
     // 2. Traducir/Establecer fecha de cabecera
     updateHeaderDate();
