@@ -2047,22 +2047,23 @@ body.light-theme .modal-content {
 
 /* BOTONES DE ACCIÓN HOMOGÉNEOS EN TABLA PRÉSTAMOS */
 .btn-action-icon {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1px solid var(--border-color);
     background: rgba(255, 255, 255, 0.04);
     color: var(--text-main);
     cursor: pointer;
     transition: all 0.2s ease;
 }
-.btn-action-icon i {
-    width: 15px;
-    height: 15px;
+.btn-action-icon i,
+.btn-action-icon svg {
+    width: 14px;
+    height: 14px;
 }
 .btn-action-icon:hover {
     transform: translateY(-2px);
@@ -2248,6 +2249,37 @@ body.light-theme .modal-content {
     height: 14px;
 }
 
+/* ==========================================
+   TABLA DE GESTIÓN DE PRÉSTAMOS (8 COLUMNAS)
+   ========================================== */
+#loans-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.81rem;
+}
+
+#loans-table th,
+#loans-table td {
+    padding: 9px 8px;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+#loans-table th {
+    font-size: 0.69rem;
+    letter-spacing: 0.4px;
+    padding: 10px 8px;
+    color: var(--text-muted);
+}
+
+#loans-table td:last-child div {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px !important;
+}
+
 /* Reducción proporcional y calibrada en pantallas de laptop (<= 1440px o poca altura) */
 @media (max-width: 1440px), (max-height: 750px) {
     :root {
@@ -2369,17 +2401,21 @@ body.light-theme .modal-content {
         font-size: 0.82rem;
     }
 
-    #inventory-table {
+    #inventory-table,
+    #loans-table {
         zoom: 0.91;
     }
 
     #inventory-table th,
-    #inventory-table td {
+    #inventory-table td,
+    #loans-table th,
+    #loans-table td {
         padding: 8px 6px;
         font-size: 0.79rem;
     }
 
-    #inventory-table th {
+    #inventory-table th,
+    #loans-table th {
         font-size: 0.67rem;
     }
 
@@ -2389,13 +2425,16 @@ body.light-theme .modal-content {
         max-width: 195px;
     }
 
-    #inventory-table .table-actions-cell .btn-sm-icon {
+    #inventory-table .table-actions-cell .btn-sm-icon,
+    #loans-table .btn-action-icon {
         width: 27px;
         height: 27px;
     }
 
     #inventory-table .table-actions-cell .btn-sm-icon svg,
-    #inventory-table .table-actions-cell .btn-sm-icon i {
+    #inventory-table .table-actions-cell .btn-sm-icon i,
+    #loans-table .btn-action-icon svg,
+    #loans-table .btn-action-icon i {
         width: 13px;
         height: 13px;
     }

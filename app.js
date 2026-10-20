@@ -4180,7 +4180,7 @@ function renderLoans() {
             <td class="text-center">${formatCurrency(quota)} <small class="text-muted">${freqLabel}</small></td>
             <td class="text-center">${statusBadge}</td>
             <td class="text-center">
-                <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+                <div style="display:flex; gap:4px; justify-content:center; align-items:center;">
                     ${loan.status === 'active' ? `<button type="button" class="btn-action-icon btn-pay" title="Registrar cobro / pago" data-id="${loan.id}"><i data-lucide="dollar-sign"></i></button>` : ''}
                     ${loan.status === 'active' ? `<button type="button" class="btn-action-icon btn-renew-loan" title="Renovar préstamo" data-id="${loan.id}"><i data-lucide="refresh-cw"></i></button>` : ''}
                     <button type="button" class="btn-action-icon btn-edit-loan" title="Editar préstamo" data-id="${loan.id}"><i data-lucide="pencil"></i></button>
