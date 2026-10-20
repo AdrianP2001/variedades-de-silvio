@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Estilos de la aplicación -->
-    <link rel="stylesheet" href="styles.css?v=2.3">
+    <link rel="stylesheet" href="styles.css?v=2.4">
     <!-- Chart.js para gráficos avanzados -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Lucide Icons para iconografía moderna -->
@@ -366,14 +366,15 @@
                     <div class="dashboard-card">
                         <div class="table-container">
                             <table class="data-table" id="inventory-table">
-                                <thead>
+<thead>
                                     <tr>
                                         <th>Producto</th>
                                         <th>Categoría</th>
                                         <th class="text-right">P. Costo</th>
                                         <th class="text-right">P. Venta</th>
-                                        <th class="text-right">Margen</th>
+                                        <th class="text-right">Margen %</th>
                                         <th class="text-center">Stock</th>
+                                        <th class="text-center">Min. Stock</th>
                                         <th class="text-center">Estado</th>
                                         <th class="text-right">Acciones</th>
                                     </tr>
@@ -1493,7 +1494,7 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Script de inicialización de la app -->
-    <script src="app.js?v=2.3"></script>
+    <script src="app.js?v=2.4"></script>
 
     <!-- Registro de PWA Service Worker -->
     <script>

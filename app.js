@@ -1887,17 +1887,15 @@ function renderInventory() {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td class="product-cell">
-                <div class="product-title-td">${p.name}</div>
-                <div class="product-id-td">${p.id}</div>
+                <div style="font-weight: 600; color: #fff;" class="product-title-td">${p.name}</div>
+                <div style="font-size: 0.75rem;" class="text-muted">${p.id}</div>
             </td>
-            <td data-label="Categoría"><span class="badge-cat-pill">${p.category}</span></td>
+            <td data-label="Categoría">${p.category}</td>
             <td class="text-right font-medium" data-label="P. Costo">${formatCurrency(p.costPrice)}</td>
-            <td class="text-right font-semibold text-success" data-label="P. Venta">${formatCurrency(p.sellingPrice)}</td>
-            <td class="text-right text-info font-medium" data-label="Margen">+${markupPercent}%</td>
-            <td class="text-center" data-label="Stock">
-                <div class="stock-main-val font-bold text-white">${p.stock}</div>
-                <div class="stock-min-hint text-muted">mín. ${p.minStock}</div>
-            </td>
+            <td class="text-right font-medium text-success" data-label="P. Venta">${formatCurrency(p.sellingPrice)}</td>
+            <td class="text-right text-muted" data-label="Margen">${markupPercent}% Margen</td>
+            <td class="text-center font-bold" data-label="Stock">${p.stock}</td>
+            <td class="text-center text-muted" data-label="Mínimo">${p.minStock}</td>
             <td class="text-center" data-label="Estado">
                 <span class="stock-pill ${stockClass}">${stockLabel}</span>
             </td>
