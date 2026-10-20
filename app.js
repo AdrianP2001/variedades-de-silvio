@@ -399,8 +399,27 @@ function setupThemeToggle() {
 }
 
 // --- CONTROLADORES DE MODALES ---
+function activateModal(modalOrId) {
+    const modal = typeof modalOrId === "string" 
+        ? (modalOrId.startsWith("modal-") ? document.getElementById(modalOrId) : document.getElementById(`modal-${modalOrId}`))
+        : modalOrId;
+    if (!modal) return;
+    const activeModals = document.querySelectorAll(".modal.active");
+    const nextZIndex = 100 + (activeModals.length * 10);
+    modal.style.zIndex = nextZIndex;
+    modal.classList.add("active");
+}
+
+function deactivateModal(modalOrId) {
+    const modal = typeof modalOrId === "string" 
+        ? (modalOrId.startsWith("modal-") ? document.getElementById(modalOrId) : document.getElementById(`modal-${modalOrId}`))
+        : modalOrId;
+    if (!modal) return;
+    modal.classList.remove("active");
+    modal.style.zIndex = "";
+}
+
 function setupQuickActionModals() {
-    const modals = document.querySelectorAll(".modal");
     const closeButtons = document.querySelectorAll(".modal-close");
     
     // Botones de Abrir
@@ -411,19 +430,36 @@ function setupQuickActionModals() {
         btnHistory.addEventListener("click", () => openModal("product-history"));
     }
 
-    // Botones de Cerrar
+    // Botones de Cerrar: cierra específicamente el modal al que pertenece el botón
     closeButtons.forEach(btn => {
         btn.addEventListener("click", (e) => {
             e.preventDefault();
-            const openModalEl = document.querySelector(".modal.active");
-            if (openModalEl) closeModal(openModalEl.id.replace("modal-", ""));
+            const parentModal = btn.closest(".modal");
+            if (parentModal) {
+                deactivateModal(parentModal);
+            } else {
+                const activeModals = document.querySelectorAll(".modal.active");
+                if (activeModals.length > 0) {
+                    deactivateModal(activeModals[activeModals.length - 1]);
+                }
+            }
         });
     });
 
-    // Cerrar haciendo clic fuera
+    // Cerrar haciendo clic en el fondo oscuro del modal específico que recibió el clic
     window.addEventListener("click", (e) => {
         if (e.target.classList.contains("modal")) {
-            closeModal(e.target.id.replace("modal-", ""));
+            deactivateModal(e.target);
+        }
+    });
+
+    // Cerrar con Escape el modal que se encuentra más arriba
+    window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            const activeModals = document.querySelectorAll(".modal.active");
+            if (activeModals.length > 0) {
+                deactivateModal(activeModals[activeModals.length - 1]);
+            }
         }
     });
 }
@@ -431,7 +467,7 @@ function setupQuickActionModals() {
 function openModal(modalName) {
     const modal = document.getElementById(`modal-${modalName}`);
     if (modal) {
-        modal.classList.add("active");
+        activateModal(modal);
         
         // Inicializar datos específicos del modal al abrir
         if (modalName === "sale") {
@@ -454,8 +490,7 @@ function openModal(modalName) {
 }
 
 function closeModal(modalName) {
-    const modal = document.getElementById(`modal-${modalName}`);
-    if (modal) modal.classList.remove("active");
+    deactivateModal(modalName);
 }
 
 // --- FORMULARIOS Y ACCIONES FINANCIERAS ---
@@ -1717,11 +1752,11 @@ function showDeleteEntryChoiceModal(entry, product) {
             if (fullNote) fullNote.style.display = "none";
         }
 
-        modal.classList.add("active");
+        activateModal(modal);
         lucide.createIcons();
 
         const cleanup = (result) => {
-            modal.classList.remove("active");
+            deactivateModal(modal);
             btnQty.removeEventListener("click", onQty);
             btnFull.removeEventListener("click", onFull);
             btnCancel.removeEventListener("click", onCancel);
@@ -1811,11 +1846,6 @@ function openEditStockEntryModal(entryId) {
         return;
     }
 
-    if (entry.type === "nuevo_producto") {
-        handleEditProductFromHistory(product.id);
-        return;
-    }
-
     const modal = document.getElementById("modal-edit-stock-entry");
     if (!modal) return;
 
@@ -1872,7 +1902,20 @@ function openEditStockEntryModal(entryId) {
 
     inputQty.oninput = updateSummary;
 
-    modal.classList.add("active");
+    // Enlace opcional para editar datos completos del producto si es un alta inicial
+    const fullProdBtnWrap = document.getElementById("edit-entry-product-details-link");
+    if (fullProdBtnWrap) {
+        fullProdBtnWrap.style.display = entry.type === "nuevo_producto" ? "block" : "none";
+        const btnFullProd = document.getElementById("btn-edit-entry-full-product");
+        if (btnFullProd) {
+            btnFullProd.onclick = () => {
+                deactivateModal(modal);
+                handleEditProduct(product.id);
+            };
+        }
+    }
+
+    activateModal(modal);
     lucide.createIcons();
     inputQty.focus();
     inputQty.select();
@@ -1902,6 +1945,11 @@ function setupEditStockEntryForm() {
         product.stock = Math.max(0, product.stock + diff);
         entry.qty = newQty;
 
+        // Si era alta inicial, sincronizar initialStock si existe
+        if (entry.type === "nuevo_producto" && product.initialStock !== undefined) {
+            product.initialStock = newQty;
+        }
+
         // Si tenía transacción asociada de egreso, actualizar valor en Caja
         if (entry.txId) {
             const tx = appState.transactions.find(t => t.id === entry.txId);
@@ -1916,7 +1964,7 @@ function setupEditStockEntryForm() {
         closeModal("edit-stock-entry");
         refreshActiveView();
         renderProductHistory();
-        showToast(`Cantidad de reabastecimiento actualizada a ${newQty} u.`, "success");
+        showToast(`Cantidad de ingreso actualizada a ${newQty} u.`, "success");
     });
 }
 
@@ -2858,7 +2906,7 @@ function requirePassword(actionLabel = "esta acción") {
         errorEl.style.display = "none";
 
         // Mostrar y enfocar
-        modal.classList.add("active");
+        activateModal(modal);
         setTimeout(() => input.focus(), 120);
         lucide.createIcons();
 
@@ -2871,7 +2919,7 @@ function requirePassword(actionLabel = "esta acción") {
         };
 
         const cleanup = (result) => {
-            modal.classList.remove("active");
+            deactivateModal(modal);
             btnOk.removeEventListener("click", onConfirm);
             btnCancel.removeEventListener("click", onCancel);
             btnClose.removeEventListener("click", onCancel);
@@ -2926,14 +2974,14 @@ function showConfirm(title, message, confirmText = "Confirmar", cancelText = "Ca
         lucide.createIcons();
 
         // Mostrar modal
-        modal.classList.add("active");
+        activateModal(modal);
 
         // Eventos
         const cleanupAndClose = (result) => {
             btnOk.removeEventListener("click", onConfirm);
             btnCancel.removeEventListener("click", onCancel);
             if (btnClose) btnClose.removeEventListener("click", onCancel);
-            modal.classList.remove("active");
+            deactivateModal(modal);
             resolve(result);
         };
 
@@ -2966,7 +3014,7 @@ function showRestockConfirm(productName, qty, totalCost) {
         messageEl.innerHTML = `Estás a punto de reponer <strong>${qty}</strong> unidades de <strong>${productName}</strong> con un costo total de <strong>${formatCurrency(totalCost)}</strong>.<br><br>¿Cómo deseas registrar esta reposición?`;
 
         // Mostrar modal
-        modal.classList.add("active");
+        activateModal(modal);
         lucide.createIcons();
 
         const cleanupAndClose = (result) => {
@@ -2974,7 +3022,7 @@ function showRestockConfirm(productName, qty, totalCost) {
             btnNoExpense.removeEventListener("click", onNoExpense);
             btnCancel.removeEventListener("click", onCancel);
             if (btnClose) btnClose.removeEventListener("click", onCancel);
-            modal.classList.remove("active");
+            deactivateModal(modal);
             resolve(result);
         };
 
