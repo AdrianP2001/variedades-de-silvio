@@ -828,6 +828,13 @@ function setupFormHandlers() {
                 if (importedData.products && importedData.transactions) {
                     if (await showConfirm("Restaurar Copia de Seguridad", "Esta acción reemplazará completamente tus datos actuales con los del archivo. ¿Deseas continuar?", "Restaurar", "Cancelar")) {
                         appState = importedData;
+                        // Si el respaldo no incluye historial previo de ingresos, arrancar con lista limpia
+                        if (!Array.isArray(appState.stockEntries)) {
+                            appState.stockEntries = [];
+                        } else {
+                            // Limpiar cualquier entrada artificial previa si existiera
+                            appState.stockEntries = appState.stockEntries.filter(e => !e.id.startsWith("entry-prod-"));
+                        }
                         saveState();
                         refreshActiveView();
                         showToast("Datos restaurados correctamente.", "success");
@@ -1549,40 +1556,13 @@ async function handleDeleteProduct(productId) {
 
 // --- HISTORIAL DE PRODUCTOS E INGRESOS DE MERCANCÍA ---
 function ensureStockEntriesInitialized() {
-    if (!appState.stockEntries) appState.stockEntries = [];
-    if (appState.stockEntries.length === 0 && appState.products.length > 0) {
-        appState.products.forEach(p => {
-            appState.stockEntries.push({
-                id: "entry-" + p.id,
-                type: "nuevo_producto",
-                productId: p.id,
-                productName: p.name,
-                category: p.category,
-                qty: p.initialStock !== undefined ? p.initialStock : p.stock,
-                costPrice: p.costPrice,
-                sellingPrice: p.sellingPrice,
-                date: p.createdAt || new Date().toISOString(),
-                txId: null
-            });
-        });
-
-        appState.transactions.forEach(t => {
-            if (t.productId && t.description && t.description.includes("REABASTECIMIENTO")) {
-                const prod = appState.products.find(p => p.id === t.productId);
-                appState.stockEntries.push({
-                    id: "entry-" + t.id,
-                    type: "reabastecimiento",
-                    productId: t.productId,
-                    productName: prod ? prod.name : t.description.replace("REABASTECIMIENTO: ", "").replace(/\(x\d+\)/, "").trim(),
-                    category: prod ? prod.category : t.category,
-                    qty: t.qty || 1,
-                    costPrice: t.qty ? (t.value / t.qty) : t.value,
-                    sellingPrice: prod ? prod.sellingPrice : 0,
-                    date: t.date + "T12:00:00.000Z",
-                    txId: t.id
-                });
-            }
-        });
+    if (!appState.stockEntries || !Array.isArray(appState.stockEntries)) {
+        appState.stockEntries = [];
+    }
+    // Depurar cualquier entrada artificial anterior que asignaba fecha de hoy a productos base
+    const prevCount = appState.stockEntries.length;
+    appState.stockEntries = appState.stockEntries.filter(e => !e.id.startsWith("entry-prod-"));
+    if (appState.stockEntries.length !== prevCount) {
         saveState();
     }
 }
