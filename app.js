@@ -568,6 +568,7 @@ function setupFormHandlers() {
         
         appState.transactions.push(newTx);
         saveState();
+        CloudSync.recordSale(newTx);
         closeModal("sale");
         refreshActiveView();
         showToast("Venta registrada correctamente.", "success");
@@ -593,6 +594,7 @@ function setupFormHandlers() {
 
         appState.transactions.push(newTx);
         saveState();
+        CloudSync.recordExpense(newTx);
         closeModal("expense");
         refreshActiveView();
         showToast("Gasto registrado correctamente.", "success");
@@ -659,6 +661,8 @@ function setupFormHandlers() {
         }
 
         saveState();
+        const savedProd = appState.products.find(p => p.id === (prodId || (typeof newProduct !== 'undefined' ? newProduct.id : '')));
+        if (savedProd && typeof CloudSync !== 'undefined') CloudSync.saveProduct(savedProd);
         closeModal("product");
         refreshActiveView();
         if (document.getElementById("modal-product-history")?.classList.contains("active")) {
@@ -751,6 +755,7 @@ function setupFormHandlers() {
             appState.stockEntries.unshift(entry);
             
             saveState();
+            CloudSync.recordRestock(entry, choice === "expense" ? newTx : null);
             closeModal("restock");
             refreshActiveView();
             if (document.getElementById("modal-product-history")?.classList.contains("active")) {
@@ -1893,6 +1898,7 @@ async function handleDeleteProduct(productId) {
             appState.stockEntries = appState.stockEntries.filter(e => e.productId !== productId);
         }
         saveState();
+        CloudSync.deleteProduct(productId);
         renderInventory();
         if (document.getElementById("modal-product-history")?.classList.contains("active")) {
             renderProductHistory();

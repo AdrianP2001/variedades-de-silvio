@@ -1,0 +1,13 @@
+{
+  "name": "variedades-de-silvio",
+  "version": "2.1.0",
+  "description": "Sistema de Control de Inventario, Finanzas y Ventas para Variedades de Silvio",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo Build completed"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  }
+}

@@ -2112,3 +2112,50 @@ body.light-theme .modal-content {
     }
 }
 
+
+/* Cloud Sync Badge (Neon Postgres) */
+.cloud-sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+    cursor: default;
+    user-select: none;
+}
+.cloud-sync-badge.online {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.3);
+}
+.cloud-sync-badge.offline {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+.cloud-sync-badge.local {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.2);
+}
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.status-dot.success {
+    background-color: #10b981;
+    box-shadow: 0 0 8px #10b981;
+}
+.status-dot.warning {
+    background-color: #f59e0b;
+    box-shadow: 0 0 8px #f59e0b;
+}
+.status-dot.neutral {
+    background-color: #94a3b8;
+}
