@@ -282,7 +282,20 @@ const CloudSync = {
                             products: json.data.products || [],
                             transactions: json.data.transactions || [],
                             stockEntries: json.data.stockEntries || [],
-                            loans: json.data.loans || [],
+                            loans: (json.data.loans || []).map(l => ({
+                                id: l.id,
+                                client: l.client || l.clientName || 'Cliente',
+                                amount: Number(l.amount) || 0,
+                                interest: Number(l.interest) || 0,
+                                total: Number(l.total) || Number(l.totalAmount) || 0,
+                                days: Number(l.days) || 1,
+                                frequency: l.frequency || 'diaria',
+                                paid: Number(l.paid) || 0,
+                                remainingAmount: l.remainingAmount !== undefined && !isNaN(Number(l.remainingAmount)) ? Number(l.remainingAmount) : Math.max(0, (Number(l.total) || 0) - (Number(l.paid) || 0)),
+                                date: l.date || l.loanDate || new Date().toISOString().substring(0, 10),
+                                status: l.status || 'active',
+                                payments: Array.isArray(l.payments) ? l.payments : []
+                            })),
                             categories: json.data.categories || ["Ropa", "Calzado", "Perfumes", "Accesorios", "Otros"]
                         };
                         saveState();
@@ -404,7 +417,20 @@ const CloudSync = {
                         products: json.data.products || [],
                         transactions: json.data.transactions || [],
                         stockEntries: json.data.stockEntries || [],
-                        loans: json.data.loans || [],
+                        loans: (json.data.loans || []).map(l => ({
+                            id: l.id,
+                            client: l.client || l.clientName || 'Cliente',
+                            amount: Number(l.amount) || 0,
+                            interest: Number(l.interest) || 0,
+                            total: Number(l.total) || Number(l.totalAmount) || 0,
+                            days: Number(l.days) || 1,
+                            frequency: l.frequency || 'diaria',
+                            paid: Number(l.paid) || 0,
+                            remainingAmount: l.remainingAmount !== undefined && !isNaN(Number(l.remainingAmount)) ? Number(l.remainingAmount) : Math.max(0, (Number(l.total) || 0) - (Number(l.paid) || 0)),
+                            date: l.date || l.loanDate || new Date().toISOString().substring(0, 10),
+                            status: l.status || 'active',
+                            payments: Array.isArray(l.payments) ? l.payments : []
+                        })),
                         categories: json.data.categories || appState.categories
                     };
                     saveState();
@@ -642,6 +668,22 @@ function loadState() {
             if (!appState.transactions) appState.transactions = [];
             if (!appState.loans) appState.loans = [];
             if (!appState.stockEntries) appState.stockEntries = [];
+
+            // Normalizar y sanear préstamos existentes en localStorage
+            appState.loans = appState.loans.map(l => ({
+                id: l.id,
+                client: l.client || l.clientName || 'Cliente',
+                amount: Number(l.amount) || 0,
+                interest: Number(l.interest) || 0,
+                total: Number(l.total) || Number(l.totalAmount) || 0,
+                days: Number(l.days) || 1,
+                frequency: l.frequency || 'diaria',
+                paid: Number(l.paid) || 0,
+                remainingAmount: l.remainingAmount !== undefined && !isNaN(Number(l.remainingAmount)) ? Number(l.remainingAmount) : Math.max(0, (Number(l.total) || 0) - (Number(l.paid) || 0)),
+                date: l.date || l.loanDate || new Date().toISOString().substring(0, 10),
+                status: l.status || 'active',
+                payments: Array.isArray(l.payments) ? l.payments : []
+            }));
 
             // Filtrar y eliminar transacciones de préstamos registradas previamente en la Caja de la tienda
             appState.transactions = appState.transactions.filter(t => {
@@ -1490,16 +1532,21 @@ function renderDashboardLoansMode() {
     let activeLoansCount = 0;
 
     appState.loans.forEach(loan => {
-        totalCollected += loan.paid;
-        if (loan.total > 0) {
-            const interestProportion = (loan.total - loan.amount) / loan.total;
-            totalInterestProfit += (loan.paid * interestProportion);
+        const paid = Number(loan.paid) || 0;
+        const total = Number(loan.total) || Number(loan.totalAmount) || 0;
+        const amount = Number(loan.amount) || (total ? Math.round(total / (1 + (Number(loan.interest) || 0) / 100)) : 0);
+        const status = loan.status || 'active';
+
+        totalCollected += paid;
+        if (total > 0 && amount > 0) {
+            const interestProportion = (total - amount) / total;
+            totalInterestProfit += (paid * interestProportion);
         }
 
-        if (loan.status === 'active') {
-            totalCapital += loan.amount;
-            totalToCollect += loan.total;
-            totalPending += (loan.total - loan.paid);
+        if (status === 'active') {
+            totalCapital += amount;
+            totalToCollect += total;
+            totalPending += Math.max(0, total - paid);
             activeLoansCount++;
         }
     });
@@ -1633,21 +1680,26 @@ function renderDashboardLoansRecentActivity() {
 
     const loanEvents = [];
     appState.loans.forEach(loan => {
+        const date = loan.date || new Date().toISOString().substring(0, 10);
+        const client = loan.client || loan.clientName || 'Cliente';
+        const amount = Number(loan.amount) || 0;
+
         loanEvents.push({
-            date: loan.date,
+            date: date,
             type: 'otorgado',
-            description: `Préstamo Otorgado: ${loan.client}`,
+            description: `Préstamo Otorgado: ${client}`,
             category: 'Préstamo Principal',
-            amount: loan.amount
+            amount: amount
         });
         if (loan.payments) {
             loan.payments.forEach(p => {
+                const pDate = p.date || date;
                 loanEvents.push({
-                    date: p.date,
+                    date: pDate,
                     type: 'cobro',
-                    description: `Abono/Cobro Préstamo: ${loan.client}`,
+                    description: `Abono/Cobro Préstamo: ${client}`,
                     category: 'Cobro de Cuota',
-                    amount: p.amount
+                    amount: Number(p.amount) || 0
                 });
             });
         }
@@ -1663,9 +1715,10 @@ function renderDashboardLoansRecentActivity() {
 
     top5.forEach(item => {
         const isCobro = item.type === 'cobro';
+        const dateFormatted = (item.date && item.date.includes('-')) ? item.date.split('-').reverse().join('/') : (item.date || '-');
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td data-label="Fecha">${item.date.split('-').reverse().join('/')}</td>
+            <td data-label="Fecha">${dateFormatted}</td>
             <td data-label="Tipo">
                 <span class="row-type-badge ${isCobro ? 'row-type-ingreso' : 'row-type-egreso'}">
                     <i data-lucide="${isCobro ? 'hand-coins' : 'arrow-up-right'}"></i>
@@ -1689,15 +1742,17 @@ function renderDashboardLoansChart() {
     
     const monthlyData = {};
     appState.loans.forEach(loan => {
-        const mStart = loan.date.substring(0, 7);
+        const mStart = (loan.date || new Date().toISOString()).substring(0, 7);
         if (!monthlyData[mStart]) monthlyData[mStart] = { prestado: 0, cobrado: 0 };
-        monthlyData[mStart].prestado += loan.amount;
+        monthlyData[mStart].prestado += (Number(loan.amount) || 0);
 
         if (loan.payments) {
             loan.payments.forEach(p => {
-                const mPay = p.date.substring(0, 7);
-                if (!monthlyData[mPay]) monthlyData[mPay] = { prestado: 0, cobrado: 0 };
-                monthlyData[mPay].cobrado += p.amount;
+                const mPay = (p.date || loan.date || '').substring(0, 7);
+                if (mPay) {
+                    if (!monthlyData[mPay]) monthlyData[mPay] = { prestado: 0, cobrado: 0 };
+                    monthlyData[mPay].cobrado += (Number(p.amount) || 0);
+                }
             });
         }
     });
@@ -2872,15 +2927,20 @@ function renderLoansReport() {
     let renewedCount = 0;
 
     appState.loans.forEach(loan => {
-        if (loan.total > 0) {
-            const interestProportion = (loan.total - loan.amount) / loan.total;
-            totalInterestProfit += (loan.paid * interestProportion);
+        const paid = Number(loan.paid) || 0;
+        const total = Number(loan.total) || Number(loan.totalAmount) || 0;
+        const amount = Number(loan.amount) || (total ? Math.round(total / (1 + (Number(loan.interest) || 0) / 100)) : 0);
+        const status = loan.status || 'active';
+
+        if (total > 0 && amount > 0) {
+            const interestProportion = (total - amount) / total;
+            totalInterestProfit += (paid * interestProportion);
         }
 
-        if (loan.status === 'paid') paidCount++;
-        else if (loan.status === 'renewed') renewedCount++;
-        else if (loan.status === 'active') {
-            totalPendingCapital += (loan.total - loan.paid);
+        if (status === 'paid') paidCount++;
+        else if (status === 'renewed') renewedCount++;
+        else if (status === 'active') {
+            totalPendingCapital += Math.max(0, total - paid);
         }
     });
 
@@ -3778,6 +3838,9 @@ function setupLoanHandlers() {
             if (!appState.loans) appState.loans = [];
             appState.loans.push(newLoan);
             saveState();
+            if (typeof CloudSync !== 'undefined' && CloudSync.saveLoan) {
+                CloudSync.saveLoan(newLoan);
+            }
             
             closeModal("loan");
             renderLoans();
@@ -3810,6 +3873,9 @@ function setupLoanHandlers() {
                 loan.status = 'paid';
             }
             saveState();
+            if (typeof CloudSync !== 'undefined' && CloudSync.saveLoan) {
+                CloudSync.saveLoan(loan);
+            }
             
             closeModal("payment");
             renderLoans();
@@ -3898,6 +3964,10 @@ function setupLoanHandlers() {
             appState.loans.push(newLoan);
 
             saveState();
+            if (typeof CloudSync !== 'undefined' && CloudSync.saveLoan) {
+                CloudSync.saveLoan(oldLoan);
+                CloudSync.saveLoan(newLoan);
+            }
             closeModal("renew-loan");
             renderLoans();
             refreshActiveView();
@@ -3940,6 +4010,9 @@ function setupLoanHandlers() {
             else if (loan.status === 'paid' && loan.paid < loan.total) loan.status = 'active';
 
             saveState();
+            if (typeof CloudSync !== 'undefined' && CloudSync.saveLoan) {
+                CloudSync.saveLoan(loan);
+            }
             closeModal("edit-loan");
             renderLoans();
             refreshActiveView();
@@ -4082,8 +4155,8 @@ function openClientHistoryModal(clientName) {
     let totalInvested = 0;
     let totalCollected = 0;
     clientLoans.forEach(l => {
-        totalInvested += l.amount;
-        totalCollected += l.paid;
+        totalInvested += (Number(l.amount) || 0);
+        totalCollected += (Number(l.paid) || 0);
     });
 
     document.getElementById("history-client-stats").innerHTML = `
@@ -4100,10 +4173,15 @@ function openClientHistoryModal(clientName) {
     if (clientLoans.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No hay préstamos registrados para este cliente.</td></tr>`;
     } else {
-        const sorted = [...clientLoans].sort((a, b) => new Date(b.date + 'T00:00:00') - new Date(a.date + 'T00:00:00'));
+        const sorted = [...clientLoans].sort((a, b) => new Date((b.date || '') + 'T00:00:00') - new Date((a.date || '') + 'T00:00:00'));
         sorted.forEach(loan => {
-            const quota = loan.total / loan.days;
+            const amount = Number(loan.amount) || 0;
+            const total = Number(loan.total) || Number(loan.totalAmount) || 0;
+            const paid = Number(loan.paid) || 0;
+            const days = Number(loan.days) || 1;
+            const quota = days > 0 ? (total / days) : total;
             const freq = loan.frequency || 'diaria';
+            const status = loan.status || 'active';
 
             let freqLabel = " / día";
             if (freq === 'semanal') freqLabel = " / sem";
@@ -4111,23 +4189,27 @@ function openClientHistoryModal(clientName) {
             if (freq === 'mensual') freqLabel = " / mes";
 
             let statusBadge = '';
-            if (loan.status === 'paid') statusBadge = `<span class="badge badge-success">Pagado</span>`;
-            else if (loan.status === 'renewed') statusBadge = `<span class="badge badge-info">Renovado</span>`;
+            if (status === 'paid') statusBadge = `<span class="badge badge-success">Pagado</span>`;
+            else if (status === 'renewed') statusBadge = `<span class="badge badge-info">Renovado</span>`;
             else statusBadge = `<span class="badge badge-warning">Activo</span>`;
 
             let paymentsHTML = '<span class="text-muted">Sin abonos</span>';
             if (loan.payments && loan.payments.length > 0) {
                 paymentsHTML = `<details><summary style="cursor:pointer; color:var(--primary); font-weight:500;">${loan.payments.length} abono(s)</summary><ul style="padding-left:14px; margin-top:4px; font-size:0.8rem; text-align:left;" class="text-muted">` +
-                    loan.payments.map(p => `<li>${p.date.split('-').reverse().join('/')}: <strong>${formatCurrency(p.amount)}</strong></li>`).join('') +
+                    loan.payments.map(p => {
+                        const pDateFormatted = (p.date && p.date.includes('-')) ? p.date.split('-').reverse().join('/') : (p.date || '-');
+                        return `<li>${pDateFormatted}: <strong>${formatCurrency(Number(p.amount) || 0)}</strong></li>`;
+                    }).join('') +
                     `</ul></details>`;
             }
 
+            const formattedDate = (loan.date && loan.date.includes('-')) ? loan.date.split('-').reverse().join('/') : (loan.date || '-');
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td>${loan.date.split('-').reverse().join('/')}</td>
-                <td class="text-right text-danger">${formatCurrency(loan.amount)}</td>
-                <td class="text-right">${formatCurrency(loan.total)}</td>
-                <td class="text-right text-success">${formatCurrency(loan.paid)}</td>
+                <td>${formattedDate}</td>
+                <td class="text-right text-danger">${formatCurrency(amount)}</td>
+                <td class="text-right">${formatCurrency(total)}</td>
+                <td class="text-right text-success">${formatCurrency(paid)}</td>
                 <td class="text-center">${formatCurrency(quota)} <small class="text-muted">${freqLabel}</small></td>
                 <td class="text-center">${statusBadge}</td>
                 <td class="text-center">${paymentsHTML}</td>
@@ -4145,7 +4227,7 @@ function renderLoans() {
     
     if (!appState.loans) appState.loans = [];
 
-    // Calcular KPIs de préstamos
+    // Calcular KPIs de préstamos defensivamente
     let totalCapital = 0;
     let totalToCollect = 0;
     let totalCollected = 0;
@@ -4154,18 +4236,23 @@ function renderLoans() {
     let activeLoansCount = 0;
 
     appState.loans.forEach(loan => {
-        totalCollected += loan.paid;
+        const paid = Number(loan.paid) || 0;
+        const total = Number(loan.total) || Number(loan.totalAmount) || 0;
+        const amount = Number(loan.amount) || (total ? Math.round(total / (1 + (Number(loan.interest) || 0) / 100)) : 0);
+        const status = loan.status || 'active';
+
+        totalCollected += paid;
         
         // Proporción de ganancia neta por intereses en lo recaudado
-        if (loan.total > 0) {
-            const interestProportion = (loan.total - loan.amount) / loan.total;
-            totalInterestProfit += (loan.paid * interestProportion);
+        if (total > 0 && amount > 0) {
+            const interestProportion = (total - amount) / total;
+            totalInterestProfit += (paid * interestProportion);
         }
 
-        if (loan.status === 'active') {
-            totalCapital += loan.amount;
-            totalToCollect += loan.total;
-            totalPending += (loan.total - loan.paid);
+        if (status === 'active') {
+            totalCapital += amount;
+            totalToCollect += total;
+            totalPending += Math.max(0, total - paid);
             activeLoansCount++;
         }
     });
@@ -4189,7 +4276,8 @@ function renderLoans() {
     const freqFilter = document.getElementById("loan-filter-frequency") ? document.getElementById("loan-filter-frequency").value : "all";
 
     let filtered = appState.loans.filter(loan => {
-        const matchSearch = loan.client.toLowerCase().includes(search);
+        const client = (loan.client || loan.clientName || 'Cliente').toLowerCase();
+        const matchSearch = client.includes(search);
         const matchStatus = statusFilter === "all" || loan.status === statusFilter;
         const matchFreq = freqFilter === "all" || (loan.frequency || 'diaria') === freqFilter;
         return matchSearch && matchStatus && matchFreq;
@@ -4203,9 +4291,15 @@ function renderLoans() {
     }
 
     filtered.forEach(loan => {
-        const remaining = loan.total - loan.paid;
-        const quota = loan.total / loan.days;
+        const client = loan.client || loan.clientName || 'Cliente';
+        const total = Number(loan.total) || Number(loan.totalAmount) || 0;
+        const paid = Number(loan.paid) || 0;
+        const amount = Number(loan.amount) || (total ? Math.round(total / (1 + (Number(loan.interest) || 0) / 100)) : 0);
+        const days = Number(loan.days) || 1;
+        const remaining = Math.max(0, total - paid);
+        const quota = days > 0 ? (total / days) : total;
         const freq = loan.frequency || 'diaria';
+        const status = loan.status || 'active';
         
         let freqLabel = " / día";
         if (freq === 'semanal') freqLabel = " / sem";
@@ -4213,29 +4307,31 @@ function renderLoans() {
         if (freq === 'mensual') freqLabel = " / mes";
         
         let statusBadge = '';
-        if (loan.status === 'paid') {
+        if (status === 'paid') {
             statusBadge = `<span class="badge badge-success">Pagado</span>`;
-        } else if (loan.status === 'renewed') {
+        } else if (status === 'renewed') {
             statusBadge = `<span class="badge badge-info">Renovado</span>`;
         } else {
             statusBadge = `<span class="badge badge-warning">Activo</span>`;
         }
 
+        const formattedDate = (loan.date && loan.date.includes('-')) ? loan.date.split('-').reverse().join('/') : (loan.date || '-');
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td>${loan.date.split('-').reverse().join('/')}</td>
-            <td><strong>${loan.client}</strong></td>
-            <td class="text-right text-danger">${formatCurrency(loan.amount)}</td>
-            <td class="text-right">${formatCurrency(loan.total)}</td>
+            <td>${formattedDate}</td>
+            <td><strong>${client}</strong></td>
+            <td class="text-right text-danger">${formatCurrency(amount)}</td>
+            <td class="text-right">${formatCurrency(total)}</td>
             <td class="text-right fw-bold text-warning">${formatCurrency(remaining)}</td>
             <td class="text-center">${formatCurrency(quota)} <small class="text-muted">${freqLabel}</small></td>
             <td class="text-center">${statusBadge}</td>
             <td class="text-center">
                 <div style="display:flex; gap:4px; justify-content:center; align-items:center;">
-                    ${loan.status === 'active' ? `<button type="button" class="btn-action-icon btn-pay" title="Registrar cobro / pago" data-id="${loan.id}"><i data-lucide="dollar-sign"></i></button>` : ''}
-                    ${loan.status === 'active' ? `<button type="button" class="btn-action-icon btn-renew-loan" title="Renovar préstamo" data-id="${loan.id}"><i data-lucide="refresh-cw"></i></button>` : ''}
+                    ${status === 'active' ? `<button type="button" class="btn-action-icon btn-pay" title="Registrar cobro / pago" data-id="${loan.id}"><i data-lucide="dollar-sign"></i></button>` : ''}
+                    ${status === 'active' ? `<button type="button" class="btn-action-icon btn-renew-loan" title="Renovar préstamo" data-id="${loan.id}"><i data-lucide="refresh-cw"></i></button>` : ''}
                     <button type="button" class="btn-action-icon btn-edit-loan" title="Editar préstamo" data-id="${loan.id}"><i data-lucide="pencil"></i></button>
-                    <button type="button" class="btn-action-icon btn-history-loan" title="Ver historial del cliente" data-client="${loan.client}"><i data-lucide="history"></i></button>
+                    <button type="button" class="btn-action-icon btn-history-loan" title="Ver historial del cliente" data-client="${client}"><i data-lucide="history"></i></button>
                     <button type="button" class="btn-action-icon btn-delete-loan" title="Eliminar préstamo" data-id="${loan.id}"><i data-lucide="trash-2"></i></button>
                 </div>
             </td>
@@ -4299,6 +4395,9 @@ async function deleteLoan(loanId) {
 
         appState.loans = appState.loans.filter(l => l.id !== loanId);
         saveState();
+        if (typeof CloudSync !== 'undefined' && CloudSync.deleteLoan) {
+            CloudSync.deleteLoan(loanId);
+        }
         renderLoans();
         showToast("Préstamo eliminado con éxito", "info");
     }

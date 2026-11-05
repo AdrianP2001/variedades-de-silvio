@@ -69,16 +69,34 @@ async function ensureTables() {
     await sql`
       CREATE TABLE IF NOT EXISTS silvio_loans (
         id VARCHAR(100) PRIMARY KEY,
-        client_name VARCHAR(255) NOT NULL,
+        client VARCHAR(255) DEFAULT 'Cliente',
+        client_name VARCHAR(255) DEFAULT 'Cliente',
+        amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        interest NUMERIC(8,2) NOT NULL DEFAULT 0,
+        total NUMERIC(12,2) NOT NULL DEFAULT 0,
         total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        days INTEGER NOT NULL DEFAULT 1,
+        frequency VARCHAR(20) NOT NULL DEFAULT 'diaria',
+        paid NUMERIC(12,2) NOT NULL DEFAULT 0,
         remaining_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
-        loan_date VARCHAR(20),
-        due_date VARCHAR(20),
-        status VARCHAR(20) DEFAULT 'activo',
+        date VARCHAR(20) DEFAULT '',
+        loan_date VARCHAR(20) DEFAULT '',
+        due_date VARCHAR(20) DEFAULT '',
+        status VARCHAR(20) DEFAULT 'active',
         payments JSONB DEFAULT '[]'::jsonb,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `;
+
+    // Migraciones automáticas idempotentes para tablas existentes
+    await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS client VARCHAR(255) DEFAULT 'Cliente'`;
+    await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS amount NUMERIC(12,2) DEFAULT 0`;
+    await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS interest NUMERIC(8,2) DEFAULT 0`;
+    await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS total NUMERIC(12,2) DEFAULT 0`;
+    await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS days INTEGER DEFAULT 1`;
+    await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS frequency VARCHAR(20) DEFAULT 'diaria'`;
+    await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS paid NUMERIC(12,2) DEFAULT 0`;
+    await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS date VARCHAR(20) DEFAULT ''`;
 
     await sql`
       CREATE TABLE IF NOT EXISTS silvio_meta (
