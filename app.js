@@ -92,11 +92,11 @@ function setupLogin() {
     // Mostrar login, ocultar app
     appContainer.style.visibility = "hidden";
 
-    const btnLogin     = document.getElementById("btn-login");
+    const btnLogin = document.getElementById("btn-login");
     const btnTogglePass = document.getElementById("btn-toggle-pass");
-    const inputUser    = document.getElementById("login-username");
-    const inputPass    = document.getElementById("login-password");
-    const loginError   = document.getElementById("login-error");
+    const inputUser = document.getElementById("login-username");
+    const inputPass = document.getElementById("login-password");
+    const loginError = document.getElementById("login-error");
 
     // Toggle mostrar/ocultar contraseña
     btnTogglePass.addEventListener("click", () => {
@@ -239,7 +239,7 @@ const CloudSync = {
             badge.title = "Sincronizando operaciones pendientes con Neon Postgres...";
         } else if (this.isCloudConnected) {
             badge.className = "cloud-sync-badge online";
-            badge.innerHTML = '<span class="status-dot success"></span><span>Nube Neon (En vivo)</span>';
+            badge.innerHTML = '<span class="status-dot success"></span><span>Nube (En vivo)</span>';
             badge.title = "Conectado a Neon Postgres. Todo sincronizado en vivo.";
         } else {
             badge.className = "cloud-sync-badge local";
@@ -588,20 +588,21 @@ const CloudSync = {
         }
     },
 
-    async deleteTransaction(txId) {
+    async deleteTransaction(txIdOrPayload) {
+        const payload = typeof txIdOrPayload === "object" ? txIdOrPayload : { id: txIdOrPayload };
         if (!this.isOnline || !this.isCloudConnected) {
-            this.addToQueue("deleteTransaction", { id: txId });
+            this.addToQueue("deleteTransaction", payload);
             return;
         }
         try {
             const res = await fetch("/api/transaction", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: txId })
+                body: JSON.stringify(payload)
             });
             if (!res.ok) throw new Error("Status " + res.status);
         } catch (e) {
-            this.addToQueue("deleteTransaction", { id: txId });
+            this.addToQueue("deleteTransaction", payload);
         }
     },
 
@@ -626,7 +627,7 @@ function initApp() {
     if (typeof CloudSync !== 'undefined' && CloudSync.init) {
         CloudSync.init();
     }
-    
+
     // 2. Traducir/Establecer fecha de cabecera
     updateHeaderDate();
 
@@ -739,11 +740,11 @@ async function clearDatabase() {
         appState.stockEntries = [];
         localStorage.setItem("silvio_db_cleared", "true");
         saveState();
-        
+
         if (typeof CloudSync !== 'undefined' && CloudSync.clearCloudDatabase) {
             await CloudSync.clearCloudDatabase();
         }
-        
+
         refreshActiveView();
         showToast("Base de datos vaciada completamente (local y nube).", "info");
     }
@@ -756,7 +757,7 @@ function updateHeaderDate() {
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         dateEl.textContent = new Date().toLocaleDateString('es-ES', options);
     }
-    
+
     // Poner fecha de hoy por defecto en inputs de modales
     const todayStr = new Date().toISOString().substring(0, 10);
     document.getElementById("sale-date").value = todayStr;
@@ -792,7 +793,7 @@ function setupNavigation() {
         btn.addEventListener("click", () => {
             navButtons.forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
-            
+
             const targetView = btn.getAttribute("data-view");
             switchView(targetView);
         });
@@ -823,7 +824,7 @@ function switchView(viewName) {
     const titleEl = document.getElementById("view-title");
     const subtitleEl = document.getElementById("view-subtitle");
 
-    switch(viewName) {
+    switch (viewName) {
         case "dashboard":
             titleEl.textContent = "Resumen Financiero";
             subtitleEl.textContent = "Estado actual de tu negocio el día de hoy.";
@@ -855,7 +856,7 @@ function switchView(viewName) {
             renderLoans();
             break;
     }
-    
+
     // Volver a renderizar iconos de Lucide cargados dinámicamente
     lucide.createIcons();
 }
@@ -873,7 +874,7 @@ function refreshActiveView() {
 // --- MODO OSCURO / MODO CLARO ---
 function setupThemeToggle() {
     const toggle = document.getElementById("theme-toggle");
-    
+
     // Cargar preferencia anterior si existe
     const savedTheme = localStorage.getItem("app-theme");
     if (savedTheme === "light") {
@@ -896,7 +897,7 @@ function setupThemeToggle() {
             document.body.classList.add("light-theme");
             localStorage.setItem("app-theme", "light");
         }
-        
+
         // Re-dibujar gráficos para adaptar colores
         refreshActiveView();
     });
@@ -904,7 +905,7 @@ function setupThemeToggle() {
 
 // --- CONTROLADORES DE MODALES ---
 function activateModal(modalOrId) {
-    const modal = typeof modalOrId === "string" 
+    const modal = typeof modalOrId === "string"
         ? (modalOrId.startsWith("modal-") ? document.getElementById(modalOrId) : document.getElementById(`modal-${modalOrId}`))
         : modalOrId;
     if (!modal) return;
@@ -915,7 +916,7 @@ function activateModal(modalOrId) {
 }
 
 function deactivateModal(modalOrId) {
-    const modal = typeof modalOrId === "string" 
+    const modal = typeof modalOrId === "string"
         ? (modalOrId.startsWith("modal-") ? document.getElementById(modalOrId) : document.getElementById(`modal-${modalOrId}`))
         : modalOrId;
     if (!modal) return;
@@ -925,7 +926,7 @@ function deactivateModal(modalOrId) {
 
 function setupQuickActionModals() {
     const closeButtons = document.querySelectorAll(".modal-close");
-    
+
     // Botones de Abrir
     document.getElementById("btn-quick-sale").addEventListener("click", () => openModal("sale"));
     document.getElementById("btn-quick-expense").addEventListener("click", () => openModal("expense"));
@@ -972,7 +973,7 @@ function openModal(modalName) {
     const modal = document.getElementById(`modal-${modalName}`);
     if (modal) {
         activateModal(modal);
-        
+
         // Inicializar datos específicos del modal al abrir
         if (modalName === "sale") {
             populateSaleProductDropdown();
@@ -988,7 +989,7 @@ function openModal(modalName) {
         } else if (modalName === "product") {
             // El formulario del producto se maneja directo en setupFormHandlers para diferenciar NEW vs EDIT
         }
-        
+
         lucide.createIcons();
     }
 }
@@ -1009,13 +1010,13 @@ function setupFormHandlers() {
     selectSaleProduct.addEventListener("change", () => {
         const prodId = selectSaleProduct.value;
         const qtyGroup = document.getElementById("group-sale-qty");
-        
+
         if (prodId) {
             const product = appState.products.find(p => p.id === prodId);
             qtyGroup.style.display = "block";
             inputSaleQty.max = product.stock;
             inputSaleQty.value = 1;
-            
+
             // Actualizar precio de venta por defecto e info de stock
             document.getElementById("sale-stock-info").textContent = `Stock disponible: ${product.stock}`;
             inputSaleVal.value = product.sellingPrice;
@@ -1069,7 +1070,7 @@ function setupFormHandlers() {
             // ganancia histórica no cambie si después se edita el precio de costo
             unitCost: prodId ? appState.products.find(p => p.id === prodId).costPrice : null
         };
-        
+
         appState.transactions.push(newTx);
         saveState();
         CloudSync.recordSale(newTx);
@@ -1180,12 +1181,12 @@ function setupFormHandlers() {
         document.getElementById("product-id").value = "";
         document.getElementById("product-modal-title").innerHTML = `<i data-lucide="package-plus"></i> Añadir Nuevo Producto`;
         document.getElementById("btn-save-product").textContent = "Guardar Producto";
-        
+
         // Habilitar la edición de stock inicial al crear
         document.getElementById("product-stock").disabled = false;
         const unlockWrapper = document.getElementById("stock-unlock-wrapper");
         if (unlockWrapper) unlockWrapper.style.display = "none";
-        
+
         openModal("product");
     });
 
@@ -1213,17 +1214,17 @@ function setupFormHandlers() {
         const product = appState.products.find(p => p.id === prodId);
         if (product) {
             const totalCost = costPrice * qty;
-            
+
             // Mostrar modal de confirmación personalizado para decidir el gasto
             const choice = await showRestockConfirm(product.name, qty, totalCost);
-            
+
             if (choice === "cancel") {
                 // Cancelar la operación de reabastecimiento por completo
                 return;
             }
-            
+
             product.stock += qty; // Aumentar stock en inventario
-            
+
             let newTxId = null;
             if (choice === "expense") {
                 // Registrar egreso por compra de mercancía
@@ -1257,7 +1258,7 @@ function setupFormHandlers() {
                 txId: newTxId
             };
             appState.stockEntries.unshift(entry);
-            
+
             saveState();
             CloudSync.recordRestock(entry, choice === "expense" ? newTx : null);
             closeModal("restock");
@@ -1265,7 +1266,7 @@ function setupFormHandlers() {
             if (document.getElementById("modal-product-history")?.classList.contains("active")) {
                 renderProductHistory();
             }
-            
+
             if (choice === "expense") {
                 showToast("Stock reabastecido y gasto registrado.", "success");
             } else {
@@ -1289,10 +1290,10 @@ function setupFormHandlers() {
     if (btnDailyClose) {
         btnDailyClose.addEventListener("click", async () => {
             const dateStr = new Date().toISOString().substring(0, 10);
-            
+
             // 1. Descargar Backup JSON
             const jsonSaved = await saveFileNativeOrWeb(`Respaldo_Silvio_${dateStr}.json`, JSON.stringify(appState, null, 2));
-            
+
             if (!jsonSaved) {
                 showToast("Respaldo cancelado", "info");
                 return;
@@ -1315,7 +1316,7 @@ function setupFormHandlers() {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = async function(evt) {
+        reader.onload = async function (evt) {
             try {
                 const importedData = JSON.parse(evt.target.result);
                 if (importedData.products && importedData.transactions) {
@@ -1391,7 +1392,7 @@ async function saveFileNativeOrWeb(filename, content, isBase64 = false) {
         return true;
     } catch (err) {
         console.error("Error al descargar archivo web:", err);
-        const dataStr = isBase64 
+        const dataStr = isBase64
             ? `data:application/octet-stream;base64,${content}`
             : `data:text/json;charset=utf-8,${encodeURIComponent(content)}`;
         const dlAnchorElem = document.createElement("a");
@@ -1405,7 +1406,7 @@ async function saveFileNativeOrWeb(filename, content, isBase64 = false) {
 function populateSaleProductDropdown() {
     const dropdown = document.getElementById("sale-product");
     dropdown.innerHTML = '<option value="">-- No vincular a producto (Venta libre/Servicio) --</option>';
-    
+
     // Filtrar productos con stock > 0
     appState.products.forEach(p => {
         const disabledAttr = p.stock <= 0 ? 'disabled' : '';
@@ -1484,7 +1485,7 @@ function renderDashboardStoreMode() {
     document.getElementById("kpi-balance").textContent = formatCurrency(currentBalance);
     document.getElementById("kpi-income").textContent = formatCurrency(totalIncome);
     document.getElementById("kpi-expense").textContent = formatCurrency(totalExpense);
-    
+
     // Ingreso Neto (Ingresos - Egresos)
     const netIncomeVal = totalIncome - totalExpense;
     const kpiNetProfit = document.getElementById("kpi-net-profit");
@@ -1523,7 +1524,7 @@ function renderDashboardStoreMode() {
 
 function renderDashboardLoansMode() {
     if (!appState.loans) appState.loans = [];
-    
+
     let totalCapital = 0;
     let totalToCollect = 0;
     let totalCollected = 0;
@@ -1595,11 +1596,11 @@ function renderDashboardLoansMode() {
 function renderDashboardStockAlerts() {
     const alertsList = document.getElementById("dashboard-alerts-list");
     const alertCountEl = document.getElementById("alert-count");
-    
+
     // Filtrar productos con stock menor o igual al minStock
     const alertProducts = appState.products.filter(p => p.stock <= p.minStock);
     alertCountEl.textContent = `${alertProducts.length} Alertas`;
-    
+
     if (alertProducts.length === 0) {
         alertsList.innerHTML = `
             <li class="alert-empty-state">
@@ -1611,7 +1612,7 @@ function renderDashboardStockAlerts() {
     } else {
         alertCountEl.className = "badge badge-warning";
         alertsList.innerHTML = "";
-        
+
         alertProducts.forEach(p => {
             const isZero = p.stock === 0;
             const itemHtml = `
@@ -1739,7 +1740,7 @@ function renderDashboardLoansRecentActivity() {
 
 function renderDashboardLoansChart() {
     const ctx = document.getElementById("chart-dashboard").getContext("2d");
-    
+
     const monthlyData = {};
     appState.loans.forEach(loan => {
         const mStart = (loan.date || new Date().toISOString()).substring(0, 7);
@@ -1772,7 +1773,7 @@ function renderDashboardLoansChart() {
         const parts = m.split('-');
         return new Date(parts[0], parts[1] - 1, 1).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
     });
-    
+
     const prestado = sortedMonths.map(m => monthlyData[m].prestado);
     const cobrado = sortedMonths.map(m => monthlyData[m].cobrado);
 
@@ -1814,7 +1815,7 @@ function renderDashboardLoansChart() {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             return ` ${context.dataset.label}: ${formatCurrency(context.raw)}`;
                         }
                     }
@@ -1830,10 +1831,10 @@ function renderDashboardLoansChart() {
 
 function renderDashboardChart() {
     const ctx = document.getElementById("chart-dashboard").getContext("2d");
-    
+
     // Obtener los meses que tienen datos reales
     const monthlyData = {};
-    
+
     // Si no hay transacciones aún, inicializar con los últimos 3 meses dinámicos según fecha actual
     if (appState.transactions.length === 0) {
         const now = new Date();
@@ -1864,7 +1865,7 @@ function renderDashboardChart() {
         const dateObj = new Date(parts[0], parts[1] - 1, 1);
         return dateObj.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
     });
-    
+
     const ingresos = sortedMonths.map(m => monthlyData[m].ingresos);
     const gastos = sortedMonths.map(m => monthlyData[m].gastos);
 
@@ -1909,7 +1910,7 @@ function renderDashboardChart() {
                 },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             return ` ${context.dataset.label}: ${formatCurrency(context.raw)}`;
                         }
                     }
@@ -1922,10 +1923,10 @@ function renderDashboardChart() {
                 },
                 y: {
                     grid: { color: gridColor },
-                    ticks: { 
-                        color: textColor, 
+                    ticks: {
+                        color: textColor,
                         font: { family: 'Inter' },
-                        callback: function(value) {
+                        callback: function (value) {
                             return formatCurrency(value);
                         }
                     }
@@ -1947,7 +1948,7 @@ function renderInventory() {
     const filteredProducts = appState.products.filter(p => {
         // Filtro por búsqueda
         const matchesSearch = p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
-        
+
         // Filtro por categoría
         const matchesCategory = catVal === "all" || p.category === catVal;
 
@@ -1975,10 +1976,10 @@ function renderInventory() {
 
     filteredProducts.forEach(p => {
         const markupPercent = p.costPrice > 0 ? ((p.sellingPrice - p.costPrice) / p.costPrice * 100).toFixed(0) : '0';
-        
+
         let stockClass = "stock-healthy";
         let stockLabel = "Saludable";
-        
+
         if (p.stock === 0) {
             stockClass = "stock-empty";
             stockLabel = "Sin Stock";
@@ -2032,7 +2033,7 @@ function setupInventorySearchListeners() {
     const search = document.getElementById("inventory-search");
     const cat = document.getElementById("inventory-filter-category");
     const stock = document.getElementById("inventory-filter-stock");
-    
+
     // Evitar acumulamiento quitando primero
     search.removeEventListener("input", renderInventory);
     cat.removeEventListener("change", renderInventory);
@@ -2046,11 +2047,11 @@ function setupInventorySearchListeners() {
 // Acciones sobre productos
 function handleQuickSale(productId) {
     openModal("sale");
-    
+
     // Seleccionar automáticamente el producto en el dropdown
     const select = document.getElementById("sale-product");
     select.value = productId;
-    
+
     // Forzar el cambio del dropdown para rellenar campos
     const event = new Event('change');
     select.dispatchEvent(event);
@@ -2066,7 +2067,7 @@ function handleQuickRestock(productId) {
     document.getElementById("restock-product-name").textContent = product.name;
     document.getElementById("restock-cost").value = product.costPrice;
     document.getElementById("restock-qty").value = 10;
-    
+
     lucide.createIcons();
 }
 
@@ -2091,7 +2092,7 @@ function handleEditProduct(productId) {
 
     document.getElementById("product-modal-title").innerHTML = `<i data-lucide="edit-3"></i> Editar Producto`;
     document.getElementById("btn-save-product").textContent = "Guardar Cambios";
-    
+
     lucide.createIcons();
 }
 
@@ -2153,7 +2154,7 @@ function ensureStockEntriesInitialized() {
 function setupProductHistoryListeners() {
     const searchInput = document.getElementById("product-history-search");
     const periodSelect = document.getElementById("product-history-period");
-    
+
     if (searchInput) {
         searchInput.removeEventListener("input", renderProductHistory);
         searchInput.addEventListener("input", renderProductHistory);
@@ -2199,7 +2200,7 @@ function renderProductHistory() {
 
     // Filtro por búsqueda
     if (searchVal) {
-        list = list.filter(e => 
+        list = list.filter(e =>
             (e.productName && e.productName.toLowerCase().includes(searchVal)) ||
             (e.category && e.category.toLowerCase().includes(searchVal)) ||
             (e.productId && e.productId.toLowerCase().includes(searchVal))
@@ -2236,7 +2237,7 @@ function renderProductHistory() {
             const d = new Date(entry.date);
             const pDateStr = entry.date.substring(0, 10);
             const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-            
+
             if (pDateStr === todayStr) {
                 isToday = true;
                 dateFormatted = `Hoy, ${timeStr}`;
@@ -2389,33 +2390,39 @@ async function handleDeleteStockEntry(entryId) {
 
     if (choice === "qty") {
         // Descontar ÚNICAMENTE la cantidad ingresada del stock del producto
-        product.stock = Math.max(0, product.stock - entry.qty);
+        product.stock = Math.max(0, (Number(product.stock) || 0) - (Number(entry.qty) || 0));
 
         // Si fue un reabastecimiento que generó gasto en caja, anular el egreso para reintegrar el dinero
         if (entry.txId) {
             const txIndex = appState.transactions.findIndex(t => t.id === entry.txId);
             if (txIndex !== -1) {
                 appState.transactions.splice(txIndex, 1);
+                if (typeof CloudSync !== 'undefined' && CloudSync.deleteTransaction) {
+                    CloudSync.deleteTransaction(entry.txId);
+                }
             }
         }
 
         // Quitar la entrada del historial
         appState.stockEntries.splice(entryIndex, 1);
         saveState();
+        if (typeof CloudSync !== 'undefined' && CloudSync.saveProduct) {
+            CloudSync.saveProduct(product);
+        }
         refreshActiveView();
         renderProductHistory();
         showToast(`Se descontaron ${entry.qty} u. de "${product.name}". Nuevo stock: ${product.stock} u.`, "success");
     } else if (choice === "full") {
         // Opción explícita para eliminar el producto por completo si el usuario así lo solicita
         if (!await requirePassword(`eliminar el producto "${product.name}" completamente`)) return;
-        
+
         // Eliminar producto de inventario
         const pIdx = appState.products.findIndex(p => p.id === product.id);
         if (pIdx !== -1) appState.products.splice(pIdx, 1);
 
         // Eliminar todas las entradas asociadas a este producto
         appState.stockEntries = appState.stockEntries.filter(e => e.productId !== product.id);
-        
+
         saveState();
         refreshActiveView();
         renderProductHistory();
@@ -2450,7 +2457,7 @@ function openEditStockEntryModal(entryId) {
     inputQty.value = entry.qty;
 
     const summaryEl = document.getElementById("edit-entry-summary");
-    
+
     function updateSummary() {
         const newQty = parseInt(inputQty.value) || 0;
         const diff = newQty - entry.qty;
@@ -2477,7 +2484,7 @@ function openEditStockEntryModal(entryId) {
 
     const btnMinus = document.getElementById("btn-edit-entry-minus");
     const btnPlus = document.getElementById("btn-edit-entry-plus");
-    
+
     btnMinus.onclick = () => {
         let val = parseInt(inputQty.value) || 1;
         if (val > 1) {
@@ -2485,7 +2492,7 @@ function openEditStockEntryModal(entryId) {
             updateSummary();
         }
     };
-    
+
     btnPlus.onclick = () => {
         let val = parseInt(inputQty.value) || 0;
         inputQty.value = val + 1;
@@ -2553,6 +2560,9 @@ function setupEditStockEntryForm() {
         }
 
         saveState();
+        if (typeof CloudSync !== 'undefined' && CloudSync.saveProduct) {
+            CloudSync.saveProduct(product);
+        }
         closeModal("edit-stock-entry");
         refreshActiveView();
         renderProductHistory();
@@ -2586,7 +2596,7 @@ function renderTransactions() {
     const filteredTx = appState.transactions.filter(t => {
         const matchesSearch = t.description.toLowerCase().includes(searchVal) || t.category.toLowerCase().includes(searchVal);
         const matchesType = typeVal === "all" || t.type === typeVal;
-        
+
         const monthKey = t.date.substring(0, 7); // "YYYY-MM"
         const matchesMonth = monthVal === "all" || monthKey === monthVal;
 
@@ -2637,7 +2647,7 @@ function renderTransactions() {
 
 function populateTransactionMonthsDropdown(selectedValue) {
     const dropdown = document.getElementById("transaction-filter-month");
-    
+
     // Obtener meses únicos con datos reales
     const months = new Set();
 
@@ -2647,15 +2657,15 @@ function populateTransactionMonthsDropdown(selectedValue) {
 
     // Ordenar descendente
     const sortedMonths = Array.from(months).sort().reverse();
-    
+
     // Mantener la opción 'all'
     dropdown.innerHTML = '<option value="all">Todos los Meses</option>';
-    
+
     sortedMonths.forEach(m => {
         const parts = m.split('-');
         const dateObj = new Date(parts[0], parts[1] - 1, 1);
         const name = dateObj.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-        
+
         const isSelected = m === selectedValue ? 'selected' : '';
         dropdown.innerHTML += `<option value="${m}" ${isSelected} style="text-transform: capitalize;">${name}</option>`;
     });
@@ -2682,21 +2692,29 @@ async function handleDeleteTransaction(txId) {
     const tx = appState.transactions[txIndex];
     if (!await requirePassword(`eliminar el movimiento "${tx.description}"`)) return;
     if (await showConfirm("Eliminar Movimiento", `¿Estás seguro de eliminar el registro de "${tx.description}" por valor de ${formatCurrency(tx.value)}?`, "Eliminar", "Cancelar")) {
-        
-        // Si el registro de venta o reabastecimiento estaba vinculado a un producto, podemos reestablecer el stock?
-        // Es más seguro advertir que no se recalculará automáticamente el stock para evitar inconsistencias históricas
+
+        let restoreStock = false;
+        let deductStock = false;
+        let targetProductId = tx.productId || null;
+        const targetQty = Number(tx.qty) > 0 ? Number(tx.qty) : 1;
+        let updatedProductName = "";
+
         if (tx.productId) {
             const product = appState.products.find(p => p.id === tx.productId);
             if (product) {
+                targetProductId = product.id;
+                updatedProductName = product.name;
                 if (tx.type === "ingreso") {
                     // Era una venta. Cancelarla debería DEVOLVER el stock
-                    if (await showConfirm("Devolver Stock", `Este movimiento proviene de una venta del producto "${product.name}". ¿Deseas devolver las ${tx.qty} unidades al inventario?`, "Devolver Stock", "No Devolver")) {
-                        product.stock += tx.qty;
+                    if (await showConfirm("Devolver Stock", `Este movimiento proviene de una venta del producto "${product.name}". ¿Deseas devolver las ${targetQty} unidades al inventario?`, "Devolver Stock", "No Devolver")) {
+                        product.stock = (Number(product.stock) || 0) + targetQty;
+                        restoreStock = true;
                     }
-                } else if (tx.type === "egreso" && tx.description.includes("REABASTECIMIENTO")) {
+                } else if (tx.type === "egreso" && tx.description && tx.description.toUpperCase().includes("REABASTECIMIENTO")) {
                     // Era un reabastecimiento. Cancelarlo debería QUITAR el stock
-                    if (await showConfirm("Ajustar Stock", `Este movimiento proviene de un reabastecimiento del producto "${product.name}". ¿Deseas restar las ${tx.qty} unidades de su stock?`, "Restar Stock", "No Restar")) {
-                        product.stock = Math.max(0, product.stock - tx.qty);
+                    if (await showConfirm("Ajustar Stock", `Este movimiento proviene de un reabastecimiento del producto "${product.name}". ¿Deseas restar las ${targetQty} unidades de su stock?`, "Restar Stock", "No Restar")) {
+                        product.stock = Math.max(0, (Number(product.stock) || 0) - targetQty);
+                        deductStock = true;
                     }
                 }
             }
@@ -2704,11 +2722,27 @@ async function handleDeleteTransaction(txId) {
 
         appState.transactions.splice(txIndex, 1);
         saveState();
+
         if (typeof CloudSync !== 'undefined' && CloudSync.deleteTransaction) {
-            CloudSync.deleteTransaction(txId);
+            CloudSync.deleteTransaction({
+                id: txId,
+                restoreStock,
+                deductStock,
+                productId: targetProductId,
+                qty: targetQty
+            });
         }
+
         renderTransactions();
-        showToast("Movimiento financiero eliminado.", "info");
+        refreshActiveView();
+
+        if (restoreStock) {
+            showToast(`Movimiento eliminado y se devolvieron ${targetQty} u. de "${updatedProductName}" al inventario.`, "success");
+        } else if (deductStock) {
+            showToast(`Movimiento eliminado y se restaron ${targetQty} u. de "${updatedProductName}".`, "info");
+        } else {
+            showToast("Movimiento financiero eliminado.", "info");
+        }
     }
 }
 
@@ -2758,7 +2792,7 @@ function renderReports() {
     // Filtrar transacciones del periodo
     let filteredTx = [];
     const now = new Date();
-    
+
     // Texto de información
     const infoPeriodEl = document.getElementById("report-period-info");
 
@@ -2845,7 +2879,7 @@ function renderReports() {
 
     // Pintar KPIs en pantalla
     document.getElementById("report-margin-pct").textContent = `${finalAvgMargin}%`;
-    
+
     const profitEl = document.getElementById("report-net-profit");
     profitEl.textContent = formatCurrency(netProfit);
     if (netProfit < 0) {
@@ -3073,7 +3107,7 @@ function setupPeriodSelectors() {
 function handlePeriodChange(e) {
     const buttons = document.querySelectorAll(".period-selectors .btn");
     buttons.forEach(b => b.classList.remove("active"));
-    
+
     e.currentTarget.classList.add("active");
     renderReports();
 }
@@ -3083,7 +3117,7 @@ function renderReportsSummaryTable() {
     tbody.innerHTML = "";
 
     const monthlyData = {};
-    
+
     // Obtener meses desde transacciones
     appState.transactions.forEach(t => {
         const mKey = t.date.substring(0, 7); // "YYYY-MM"
@@ -3134,7 +3168,7 @@ function renderReportsCharts(filteredTransactions) {
 
     // --- GRÁFICO 1: FLUJO FINANCIERO HISTORICO ---
     const ctxFlow = document.getElementById("chart-reports-flow").getContext("2d");
-    
+
     // Agrupar por mes
     const monthlyGroups = {};
     filteredTransactions.forEach(t => {
@@ -3147,13 +3181,13 @@ function renderReportsCharts(filteredTransactions) {
     const sortedMonths = Object.keys(monthlyGroups).sort();
     const labels = sortedMonths.map(m => {
         const parts = m.split('-');
-        return new Date(parts[0], parts[1]-1, 1).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+        return new Date(parts[0], parts[1] - 1, 1).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
     });
     const datasetInc = sortedMonths.map(m => monthlyGroups[m].ingresos);
     const datasetExp = sortedMonths.map(m => monthlyGroups[m].gastos);
 
     if (reportsFlowChartInstance) reportsFlowChartInstance.destroy();
-    
+
     reportsFlowChartInstance = new Chart(ctxFlow, {
         type: 'bar',
         data: {
@@ -3185,12 +3219,12 @@ function renderReportsCharts(filteredTransactions) {
             },
             scales: {
                 x: { grid: { display: false }, ticks: { color: textColor } },
-                y: { 
-                    grid: { color: gridColor }, 
-                    ticks: { 
+                y: {
+                    grid: { color: gridColor },
+                    ticks: {
                         color: textColor,
                         callback: value => formatCurrency(value)
-                    } 
+                    }
                 }
             }
         }
@@ -3198,7 +3232,7 @@ function renderReportsCharts(filteredTransactions) {
 
     // --- GRÁFICO 2: DISTRIBUCIÓN DE GASTOS (PIE) ---
     const ctxPie = document.getElementById("chart-reports-expenses-pie").getContext("2d");
-    
+
     const categoryExpenses = {};
     // Llenar con todas las categorías de gasto conocidas con 0
     EXPENSE_CATEGORIES.forEach(c => categoryExpenses[c] = 0);
@@ -3272,17 +3306,17 @@ function renderReportsCharts(filteredTransactions) {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { 
+                    legend: {
                         position: 'bottom',
-                        labels: { 
+                        labels: {
                             color: textColor,
                             font: { family: 'Inter', size: 11 },
                             boxWidth: 12
-                        } 
+                        }
                     },
                     tooltip: {
                         callbacks: {
-                            label: function(context) {
+                            label: function (context) {
                                 return ` ${context.label}: ${formatCurrency(context.raw)}`;
                             }
                         }
@@ -3294,7 +3328,7 @@ function renderReportsCharts(filteredTransactions) {
 
     // --- GRÁFICO 3: RENDIMIENTO POR CATEGORÍA DE PRODUCTOS ---
     const ctxBar = document.getElementById("chart-reports-products-bar").getContext("2d");
-    
+
     const categorySales = {};
     PRODUCT_CATEGORIES.forEach(c => categorySales[c] = 0);
 
@@ -3333,12 +3367,12 @@ function renderReportsCharts(filteredTransactions) {
                 legend: { display: false }
             },
             scales: {
-                x: { 
-                    grid: { color: gridColor }, 
-                    ticks: { 
+                x: {
+                    grid: { color: gridColor },
+                    ticks: {
                         color: textColor,
                         callback: value => formatCurrency(value)
-                    } 
+                    }
                 },
                 y: { grid: { display: false }, ticks: { color: textColor } }
             }
@@ -3416,7 +3450,7 @@ function showToast(message, type = 'success') {
     `;
 
     container.appendChild(toast);
-    
+
     // Crear el icono de lucide
     lucide.createIcons();
 
@@ -3424,13 +3458,13 @@ function showToast(message, type = 'success') {
     const progressBar = toast.querySelector(".toast-progress");
     progressBar.style.transition = "width 3s linear";
     progressBar.style.width = "0%";
-    
+
     setTimeout(() => {
         progressBar.style.width = "100%";
     }, 10);
 
     const closeBtn = toast.querySelector(".toast-close");
-    
+
     const removeToast = () => {
         toast.classList.add("removing");
         toast.addEventListener("animationend", () => {
@@ -3493,13 +3527,13 @@ function requirePassword(actionLabel = "esta acción") {
             document.body.appendChild(modal);
         }
 
-        const input     = document.getElementById("pw-modal-input");
-        const errorEl   = document.getElementById("pw-modal-error");
-        const descEl    = document.getElementById("pw-modal-desc");
+        const input = document.getElementById("pw-modal-input");
+        const errorEl = document.getElementById("pw-modal-error");
+        const descEl = document.getElementById("pw-modal-desc");
         const btnToggle = document.getElementById("btn-pw-toggle");
-        const btnOk     = document.getElementById("btn-pw-confirm");
+        const btnOk = document.getElementById("btn-pw-confirm");
         const btnCancel = document.getElementById("btn-pw-cancel");
-        const btnClose  = document.getElementById("btn-pw-close");
+        const btnClose = document.getElementById("btn-pw-close");
 
         // Resetear estado
         descEl.textContent = `Para ${actionLabel} necesitás confirmar tu identidad con la contraseña del sistema.`;
@@ -3541,7 +3575,7 @@ function requirePassword(actionLabel = "esta acción") {
         };
 
         const onCancel = () => cleanup(false);
-        const onEnter  = (e) => { if (e.key === "Enter") onConfirm(); };
+        const onEnter = (e) => { if (e.key === "Enter") onConfirm(); };
 
         btnOk.addEventListener("click", onConfirm);
         btnCancel.addEventListener("click", onCancel);
@@ -3754,7 +3788,7 @@ async function exportToExcel() {
     XLSX.utils.book_append_sheet(wb, transactionsWS, 'Movimientos');
 
     if (window.pywebview && window.pywebview.api) {
-        const b64 = XLSX.write(wb, {bookType:'xlsx', type:'base64'});
+        const b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
         const saved = await window.pywebview.api.save_file_native('inventario_y_movimientos.xlsx', b64);
         if (saved) showToast("Archivo Excel guardado correctamente", "success");
         else showToast("Exportación a Excel cancelada", "info");
@@ -3790,12 +3824,12 @@ function setupLoanHandlers() {
         const interest = parseFloat(interestInput.value) || 0;
         const days = parseInt(daysInput.value) || 1;
         const frequency = frequencyInput ? frequencyInput.value : 'diaria';
-        
+
         const total = amount + (amount * (interest / 100));
         const quota = total / days;
-        
+
         totalInput.value = total.toFixed(2);
-        
+
         let freqLabel = " / día";
         if (frequency === 'semanal') freqLabel = " / sem";
         if (frequency === 'quincenal') freqLabel = " / quin";
@@ -3820,9 +3854,9 @@ function setupLoanHandlers() {
             const interest = parseFloat(interestInput.value);
             const total = parseFloat(totalInput.value);
             const days = parseInt(daysInput.value);
-            
+
             const frequency = document.getElementById("loan-frequency") ? document.getElementById("loan-frequency").value : 'diaria';
-            
+
             const newLoan = {
                 id: generateId("loan"),
                 date: date,
@@ -3841,7 +3875,7 @@ function setupLoanHandlers() {
             if (typeof CloudSync !== 'undefined' && CloudSync.saveLoan) {
                 CloudSync.saveLoan(newLoan);
             }
-            
+
             closeModal("loan");
             renderLoans();
             refreshActiveView();
@@ -3876,7 +3910,7 @@ function setupLoanHandlers() {
             if (typeof CloudSync !== 'undefined' && CloudSync.saveLoan) {
                 CloudSync.saveLoan(loan);
             }
-            
+
             closeModal("payment");
             renderLoans();
             refreshActiveView();
@@ -4023,7 +4057,7 @@ function setupLoanHandlers() {
     // Filtros de búsqueda
     const searchInput = document.getElementById("loan-search");
     if (searchInput) searchInput.addEventListener("input", renderLoans);
-    
+
     const filterStatus = document.getElementById("loan-filter-status");
     if (filterStatus) filterStatus.addEventListener("change", renderLoans);
 
@@ -4072,23 +4106,23 @@ function calculateEditLoan() {
 function openPaymentModal(loanId) {
     const loan = appState.loans.find(l => l.id === loanId);
     if (!loan) return;
-    
+
     document.getElementById("form-payment").reset();
     document.getElementById("payment-loan-id").value = loan.id;
     document.getElementById("payment-client-name").textContent = loan.client;
     document.getElementById("payment-date").value = new Date().toISOString().substring(0, 10);
-    
+
     const quota = loan.total / loan.days;
     const remaining = Math.max(0, loan.total - loan.paid);
 
     document.getElementById("payment-current-pending").value = remaining;
     document.getElementById("payment-regular-quota").value = quota;
     document.getElementById("payment-pending-display").value = formatCurrency(remaining);
-    
+
     const defaultPayment = Math.min(quota, remaining);
     const amountInput = document.getElementById("payment-amount");
     amountInput.value = defaultPayment.toFixed(2);
-    
+
     amountInput.removeEventListener("input", updatePaymentCalculations);
     amountInput.addEventListener("input", updatePaymentCalculations);
 
@@ -4127,7 +4161,7 @@ function openRenewModal(loanId) {
     document.getElementById("renew-old-loan-id").value = loan.id;
     document.getElementById("renew-client-name").textContent = loan.client;
     document.getElementById("renew-date").value = new Date().toISOString().substring(0, 10);
-    
+
     const pending = Math.max(0, loan.total - loan.paid);
     document.getElementById("renew-old-pending").value = pending.toFixed(2);
     document.getElementById("renew-new-capital").value = "0.00";
@@ -4144,14 +4178,14 @@ function openRenewModal(loanId) {
 
 function openClientHistoryModal(clientName) {
     const clientLoans = appState.loans.filter(l => l.client.toLowerCase() === clientName.toLowerCase());
-    
+
     document.getElementById("history-client-name").textContent = clientName;
-    
+
     const totalLoans = clientLoans.length;
     const paidLoans = clientLoans.filter(l => l.status === 'paid').length;
     const activeLoans = clientLoans.filter(l => l.status === 'active').length;
     const renewedLoans = clientLoans.filter(l => l.status === 'renewed').length;
-    
+
     let totalInvested = 0;
     let totalCollected = 0;
     clientLoans.forEach(l => {
@@ -4224,7 +4258,7 @@ function openClientHistoryModal(clientName) {
 function renderLoans() {
     const tbody = document.getElementById("loans-tbody");
     if (!tbody) return;
-    
+
     if (!appState.loans) appState.loans = [];
 
     // Calcular KPIs de préstamos defensivamente
@@ -4242,7 +4276,7 @@ function renderLoans() {
         const status = loan.status || 'active';
 
         totalCollected += paid;
-        
+
         // Proporción de ganancia neta por intereses en lo recaudado
         if (total > 0 && amount > 0) {
             const interestProportion = (total - amount) / total;
@@ -4300,12 +4334,12 @@ function renderLoans() {
         const quota = days > 0 ? (total / days) : total;
         const freq = loan.frequency || 'diaria';
         const status = loan.status || 'active';
-        
+
         let freqLabel = " / día";
         if (freq === 'semanal') freqLabel = " / sem";
         if (freq === 'quincenal') freqLabel = " / quin";
         if (freq === 'mensual') freqLabel = " / mes";
-        
+
         let statusBadge = '';
         if (status === 'paid') {
             statusBadge = `<span class="badge badge-success">Pagado</span>`;
@@ -4379,11 +4413,11 @@ function renderLoans() {
 
 async function deleteLoan(loanId) {
     if (!await requirePassword("eliminar este préstamo")) return;
-    
+
     if (await showConfirm("Eliminar Préstamo", "¿Estás seguro que deseas eliminar este préstamo? Esto revertirá su estado y eliminará del historial de caja el registro del préstamo otorgado y los cobros realizados.", "Eliminar", "Cancelar")) {
         const loan = appState.loans.find(l => l.id === loanId);
         if (!loan) return;
-        
+
         // Eliminar transacciones asociadas
         appState.transactions = appState.transactions.filter(tx => {
             if (tx.loanId === loanId) return false;
