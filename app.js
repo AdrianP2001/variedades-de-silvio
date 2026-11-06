@@ -239,7 +239,7 @@ const CloudSync = {
             badge.title = "Sincronizando operaciones pendientes con Neon Postgres...";
         } else if (this.isCloudConnected) {
             badge.className = "cloud-sync-badge online";
-            badge.innerHTML = '<span class="status-dot success"></span><span>Nube (En vivo)</span>';
+            badge.innerHTML = '<span class="status-dot success"></span><span>Nube</span>';
             badge.title = "Conectado a Neon Postgres. Todo sincronizado en vivo.";
         } else {
             badge.className = "cloud-sync-badge local";
@@ -292,7 +292,7 @@ const CloudSync = {
                                 frequency: l.frequency || 'diaria',
                                 paid: Number(l.paid) || 0,
                                 remainingAmount: l.remainingAmount !== undefined && !isNaN(Number(l.remainingAmount)) ? Number(l.remainingAmount) : Math.max(0, (Number(l.total) || 0) - (Number(l.paid) || 0)),
-                                date: l.date || l.loanDate || new Date().toISOString().substring(0, 10),
+                                date: l.date || l.loanDate || getLocalDateString(),
                                 status: l.status || 'active',
                                 payments: Array.isArray(l.payments) ? l.payments : []
                             })),
@@ -427,7 +427,7 @@ const CloudSync = {
                             frequency: l.frequency || 'diaria',
                             paid: Number(l.paid) || 0,
                             remainingAmount: l.remainingAmount !== undefined && !isNaN(Number(l.remainingAmount)) ? Number(l.remainingAmount) : Math.max(0, (Number(l.total) || 0) - (Number(l.paid) || 0)),
-                            date: l.date || l.loanDate || new Date().toISOString().substring(0, 10),
+                            date: l.date || l.loanDate || getLocalDateString(),
                             status: l.status || 'active',
                             payments: Array.isArray(l.payments) ? l.payments : []
                         })),
@@ -681,7 +681,7 @@ function loadState() {
                 frequency: l.frequency || 'diaria',
                 paid: Number(l.paid) || 0,
                 remainingAmount: l.remainingAmount !== undefined && !isNaN(Number(l.remainingAmount)) ? Number(l.remainingAmount) : Math.max(0, (Number(l.total) || 0) - (Number(l.paid) || 0)),
-                date: l.date || l.loanDate || new Date().toISOString().substring(0, 10),
+                date: l.date || l.loanDate || getLocalDateString(),
                 status: l.status || 'active',
                 payments: Array.isArray(l.payments) ? l.payments : []
             }));
@@ -751,6 +751,26 @@ async function clearDatabase() {
 }
 
 // --- UTILIDADES ---
+
+// Retorna la fecha local en formato YYYY-MM-DD sin desfase horario por UTC
+function getLocalDateString(d = new Date()) {
+    const dateObj = (d instanceof Date && !isNaN(d)) ? d : (d ? new Date(d) : new Date());
+    const valid = !isNaN(dateObj.getTime()) ? dateObj : new Date();
+    const year = valid.getFullYear();
+    const month = String(valid.getMonth() + 1).padStart(2, '0');
+    const day = String(valid.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// Retorna el año-mes local en formato YYYY-MM sin desfase horario por UTC
+function getLocalYearMonthString(d = new Date()) {
+    const dateObj = (d instanceof Date && !isNaN(d)) ? d : (d ? new Date(d) : new Date());
+    const valid = !isNaN(dateObj.getTime()) ? dateObj : new Date();
+    const year = valid.getFullYear();
+    const month = String(valid.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+}
+
 function updateHeaderDate() {
     const dateEl = document.getElementById("header-date");
     if (dateEl) {
@@ -758,11 +778,14 @@ function updateHeaderDate() {
         dateEl.textContent = new Date().toLocaleDateString('es-ES', options);
     }
 
-    // Poner fecha de hoy por defecto en inputs de modales
-    const todayStr = new Date().toISOString().substring(0, 10);
-    document.getElementById("sale-date").value = todayStr;
-    document.getElementById("expense-date").value = todayStr;
-    document.getElementById("restock-date").value = todayStr;
+    // Poner fecha de hoy por defecto en inputs de modales (hora local exacta)
+    const todayStr = getLocalDateString();
+    const saleDateEl = document.getElementById("sale-date");
+    if (saleDateEl) saleDateEl.value = todayStr;
+    const expenseDateEl = document.getElementById("expense-date");
+    if (expenseDateEl) expenseDateEl.value = todayStr;
+    const restockDateEl = document.getElementById("restock-date");
+    if (restockDateEl) restockDateEl.value = todayStr;
 }
 
 function formatCurrency(value) {
@@ -979,11 +1002,14 @@ function openModal(modalName) {
             populateSaleProductDropdown();
             // Resetea campos
             document.getElementById("form-sale").reset();
-            document.getElementById("sale-date").value = new Date().toISOString().substring(0, 10);
+            document.getElementById("sale-date").value = getLocalDateString();
             document.getElementById("group-sale-qty").style.display = "none";
         } else if (modalName === "expense") {
             document.getElementById("form-expense").reset();
-            document.getElementById("expense-date").value = new Date().toISOString().substring(0, 10);
+            document.getElementById("expense-date").value = getLocalDateString();
+        } else if (modalName === "restock") {
+            const restockDateEl = document.getElementById("restock-date");
+            if (restockDateEl) restockDateEl.value = getLocalDateString();
         } else if (modalName === "product-history") {
             renderProductHistory();
         } else if (modalName === "product") {
@@ -1289,7 +1315,7 @@ function setupFormHandlers() {
     const btnDailyClose = document.getElementById("btn-daily-close");
     if (btnDailyClose) {
         btnDailyClose.addEventListener("click", async () => {
-            const dateStr = new Date().toISOString().substring(0, 10);
+            const dateStr = getLocalDateString();
 
             // 1. Descargar Backup JSON
             const jsonSaved = await saveFileNativeOrWeb(`Respaldo_Silvio_${dateStr}.json`, JSON.stringify(appState, null, 2));
@@ -1681,7 +1707,7 @@ function renderDashboardLoansRecentActivity() {
 
     const loanEvents = [];
     appState.loans.forEach(loan => {
-        const date = loan.date || new Date().toISOString().substring(0, 10);
+        const date = loan.date || getLocalDateString();
         const client = loan.client || loan.clientName || 'Cliente';
         const amount = Number(loan.amount) || 0;
 
@@ -1743,7 +1769,7 @@ function renderDashboardLoansChart() {
 
     const monthlyData = {};
     appState.loans.forEach(loan => {
-        const mStart = (loan.date || new Date().toISOString()).substring(0, 7);
+        const mStart = (loan.date || getLocalDateString()).substring(0, 7);
         if (!monthlyData[mStart]) monthlyData[mStart] = { prestado: 0, cobrado: 0 };
         monthlyData[mStart].prestado += (Number(loan.amount) || 0);
 
@@ -2177,9 +2203,9 @@ function renderProductHistory() {
     const periodVal = document.getElementById("product-history-period")?.value || "all";
 
     const now = new Date();
-    const todayStr = now.toISOString().substring(0, 10);
+    const todayStr = getLocalDateString(now);
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const currentMonthPrefix = now.toISOString().substring(0, 7);
+    const currentMonthPrefix = getLocalYearMonthString(now);
 
     // Clonar lista de entradas ordenadas: más recientes con fecha primero, inventario base al final
     let list = [...appState.stockEntries].sort((a, b) => {
@@ -2797,8 +2823,8 @@ function renderReports() {
     const infoPeriodEl = document.getElementById("report-period-info");
 
     if (period === "diario") {
-        // Solo el día de hoy
-        const todayStr = now.toISOString().substring(0, 10); // "YYYY-MM-DD"
+        // Solo el día de hoy (hora local)
+        const todayStr = getLocalDateString(now); // "YYYY-MM-DD"
         filteredTx = appState.transactions.filter(t => t.date === todayStr);
         const todayFormatted = now.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
         infoPeriodEl.textContent = `Visualizando movimientos de hoy: ${todayFormatted}.`;
@@ -2812,10 +2838,10 @@ function renderReports() {
         filteredTx = appState.transactions.filter(t => new Date(t.date + 'T00:00:00') >= sevenDaysAgo);
         infoPeriodEl.textContent = `Visualizando balance dinámico semanal (Últimos 7 días).`;
     } else if (period === "mensual") {
-        // Mes actual
-        const currentYearMonth = now.toISOString().substring(0, 7); // "YYYY-MM"
+        // Mes actual (hora local)
+        const currentYearMonth = getLocalYearMonthString(now); // "YYYY-MM"
         filteredTx = appState.transactions.filter(t => t.date.substring(0, 7) === currentYearMonth);
-        infoPeriodEl.textContent = `Visualizando balance del mes actual: ${getMonthNameSpanish(now.toISOString().substring(0, 10))}.`;
+        infoPeriodEl.textContent = `Visualizando balance del mes actual: ${getMonthNameSpanish(getLocalDateString(now))}.`;
     } else {
         // Anual consolidado
         const currentYear = now.getFullYear();
@@ -3805,7 +3831,7 @@ function setupLoanHandlers() {
     if (btnNewLoan) {
         btnNewLoan.addEventListener("click", () => {
             document.getElementById("form-loan").reset();
-            document.getElementById("loan-date").value = new Date().toISOString().substring(0, 10);
+            document.getElementById("loan-date").value = getLocalDateString();
             openModal("loan");
         });
     }
@@ -4110,7 +4136,7 @@ function openPaymentModal(loanId) {
     document.getElementById("form-payment").reset();
     document.getElementById("payment-loan-id").value = loan.id;
     document.getElementById("payment-client-name").textContent = loan.client;
-    document.getElementById("payment-date").value = new Date().toISOString().substring(0, 10);
+    document.getElementById("payment-date").value = getLocalDateString();
 
     const quota = loan.total / loan.days;
     const remaining = Math.max(0, loan.total - loan.paid);
@@ -4160,7 +4186,7 @@ function openRenewModal(loanId) {
     document.getElementById("form-renew-loan").reset();
     document.getElementById("renew-old-loan-id").value = loan.id;
     document.getElementById("renew-client-name").textContent = loan.client;
-    document.getElementById("renew-date").value = new Date().toISOString().substring(0, 10);
+    document.getElementById("renew-date").value = getLocalDateString();
 
     const pending = Math.max(0, loan.total - loan.paid);
     document.getElementById("renew-old-pending").value = pending.toFixed(2);
