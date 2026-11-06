@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="author" content="Adrián Plaza">
     <title>Variedades de Silvio - Sistema de Control de Inventario y Finanzas</title>
     <link rel="icon" type="image/png" href="stitch_logo.png">
@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Estilos de la aplicación -->
-    <link rel="stylesheet" href="styles.css?v=2.10">
+    <link rel="stylesheet" href="styles.css?v=2.12">
     <!-- Chart.js para gráficos avanzados -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Lucide Icons para iconografía moderna -->
@@ -110,7 +110,7 @@
                     <li>
                         <button class="nav-btn" data-view="transactions" id="btn-nav-transactions">
                             <i data-lucide="arrow-left-right"></i>
-                            <span>Caja (Movimientos)</span>
+                            <span class="nav-label"><span class="nav-text-full">Caja (Movimientos)</span><span class="nav-text-short">Caja</span></span>
                         </button>
                     </li>
                     <li>
@@ -122,7 +122,7 @@
                     <li>
                         <button class="nav-btn" data-view="backup" id="btn-nav-backup">
                             <i data-lucide="database"></i>
-                            <span>Datos y Respaldo</span>
+                            <span class="nav-label"><span class="nav-text-full">Datos y Respaldo</span><span class="nav-text-short">Respaldo</span></span>
                         </button>
                     </li>
                     <li>
@@ -1494,7 +1494,7 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Script de inicialización de la app -->
-    <script src="app.js?v=2.11"></script>
+    <script src="app.js?v=2.12"></script>
 
     <!-- Registro de PWA Service Worker -->
     <script>
