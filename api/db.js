@@ -97,6 +97,7 @@ async function ensureTables() {
     await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS frequency VARCHAR(20) DEFAULT 'diaria'`;
     await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS paid NUMERIC(12,2) DEFAULT 0`;
     await sql`ALTER TABLE silvio_loans ADD COLUMN IF NOT EXISTS date VARCHAR(20) DEFAULT ''`;
+    await sql`ALTER TABLE silvio_transactions ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(12,2)`;
 
     await sql`
       CREATE TABLE IF NOT EXISTS silvio_meta (

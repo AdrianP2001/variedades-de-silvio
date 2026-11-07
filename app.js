@@ -379,6 +379,13 @@ const CloudSync = {
                         body: JSON.stringify(item.payload)
                     });
                     success = res.ok;
+                } else if (item.action === "deleteStockEntry") {
+                    const res = await fetch("/api/restock", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(item.payload)
+                    });
+                    success = res.ok;
                 }
 
                 if (success) {
@@ -603,6 +610,23 @@ const CloudSync = {
             if (!res.ok) throw new Error("Status " + res.status);
         } catch (e) {
             this.addToQueue("deleteTransaction", payload);
+        }
+    },
+
+    async deleteStockEntry(entryId) {
+        if (!this.isOnline || !this.isCloudConnected) {
+            this.addToQueue("deleteStockEntry", { id: entryId });
+            return;
+        }
+        try {
+            const res = await fetch("/api/restock", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: entryId })
+            });
+            if (!res.ok) throw new Error("Status " + res.status);
+        } catch (e) {
+            this.addToQueue("deleteStockEntry", { id: entryId });
         }
     },
 
@@ -1136,12 +1160,14 @@ function setupFormHandlers() {
     formProduct.addEventListener("submit", (e) => {
         e.preventDefault();
         const prodId = document.getElementById("product-id").value;
-        const name = document.getElementById("product-name").value;
+        const name = (document.getElementById("product-name").value || "").trim();
         const category = document.getElementById("product-category").value;
         const costPrice = parseFloat(document.getElementById("product-cost-price").value);
         const sellingPrice = parseFloat(document.getElementById("product-selling-price").value);
         const stock = parseInt(document.getElementById("product-stock").value);
         const minStock = parseInt(document.getElementById("product-min-stock").value);
+
+        let targetProdId = prodId;
 
         if (prodId) {
             // Edición
@@ -1157,42 +1183,74 @@ function setupFormHandlers() {
             }
             showToast("Producto actualizado correctamente.", "success");
         } else {
-            // Nuevo Producto
+            // Nuevo Producto - Verificar si ya existe por nombre para evitar duplicados
+            const existingProduct = appState.products.find(p => p.name.trim().toLowerCase() === name.toLowerCase());
             const now = new Date();
-            const newProduct = {
-                id: generateId("prod"),
-                name,
-                category,
-                costPrice,
-                sellingPrice,
-                stock,
-                initialStock: stock,
-                minStock,
-                createdAt: now.toISOString()
-            };
-            appState.products.push(newProduct);
 
-            // Registrar en historial de ingresos de mercancía
-            if (!appState.stockEntries) appState.stockEntries = [];
-            const entry = {
-                id: generateId("entry"),
-                type: "nuevo_producto",
-                productId: newProduct.id,
-                productName: newProduct.name,
-                category: newProduct.category,
-                qty: stock,
-                costPrice: costPrice,
-                sellingPrice: sellingPrice,
-                date: now.toISOString(),
-                txId: null
-            };
-            appState.stockEntries.unshift(entry);
+            if (existingProduct) {
+                // Ya existía: actualizar precios, categoría y sumar el nuevo stock
+                targetProdId = existingProduct.id;
+                existingProduct.costPrice = costPrice;
+                existingProduct.sellingPrice = sellingPrice;
+                existingProduct.stock = (Number(existingProduct.stock) || 0) + stock;
+                existingProduct.category = category;
+                if (!isNaN(minStock) && minStock >= 0) existingProduct.minStock = minStock;
 
-            showToast("Producto añadido al inventario.", "success");
+                // Registrar en historial de ingresos de mercancía
+                if (!appState.stockEntries) appState.stockEntries = [];
+                const entry = {
+                    id: generateId("entry"),
+                    type: "reabastecimiento",
+                    productId: existingProduct.id,
+                    productName: existingProduct.name,
+                    category: existingProduct.category,
+                    qty: stock,
+                    costPrice: costPrice,
+                    sellingPrice: sellingPrice,
+                    date: now.toISOString(),
+                    txId: null
+                };
+                appState.stockEntries.unshift(entry);
+
+                showToast(`"${existingProduct.name}" ya existía: precios actualizados (Costo: $${costPrice.toFixed(2)}, Venta: $${sellingPrice.toFixed(2)}) y se sumaron +${stock} u. al inventario.`, "success");
+            } else {
+                // Nuevo producto real
+                const newProduct = {
+                    id: generateId("prod"),
+                    name,
+                    category,
+                    costPrice,
+                    sellingPrice,
+                    stock,
+                    initialStock: stock,
+                    minStock,
+                    createdAt: now.toISOString()
+                };
+                targetProdId = newProduct.id;
+                appState.products.push(newProduct);
+
+                // Registrar en historial de ingresos de mercancía
+                if (!appState.stockEntries) appState.stockEntries = [];
+                const entry = {
+                    id: generateId("entry"),
+                    type: "nuevo_producto",
+                    productId: newProduct.id,
+                    productName: newProduct.name,
+                    category: newProduct.category,
+                    qty: stock,
+                    costPrice: costPrice,
+                    sellingPrice: sellingPrice,
+                    date: now.toISOString(),
+                    txId: null
+                };
+                appState.stockEntries.unshift(entry);
+
+                showToast("Producto añadido al inventario.", "success");
+            }
         }
 
         saveState();
-        const savedProd = appState.products.find(p => p.id === (prodId || (typeof newProduct !== 'undefined' ? newProduct.id : '')));
+        const savedProd = appState.products.find(p => p.id === targetProdId);
         if (savedProd && typeof CloudSync !== 'undefined') CloudSync.saveProduct(savedProd);
         closeModal("product");
         refreshActiveView();
@@ -1205,6 +1263,8 @@ function setupFormHandlers() {
     document.getElementById("btn-add-product").addEventListener("click", () => {
         document.getElementById("form-product").reset();
         document.getElementById("product-id").value = "";
+        const prodHint = document.getElementById("product-name-hint");
+        if (prodHint) prodHint.style.display = "none";
         document.getElementById("product-modal-title").innerHTML = `<i data-lucide="package-plus"></i> Añadir Nuevo Producto`;
         document.getElementById("btn-save-product").textContent = "Guardar Producto";
 
@@ -1228,6 +1288,31 @@ function setupFormHandlers() {
         });
     }
 
+    // Sugerencia dinámica al tipear nombre en modal de producto
+    const inputProdName = document.getElementById("product-name");
+    const prodHint = document.getElementById("product-name-hint");
+    if (inputProdName && prodHint) {
+        inputProdName.addEventListener("input", () => {
+            const currentProdId = document.getElementById("product-id").value;
+            if (currentProdId) {
+                prodHint.style.display = "none";
+                return;
+            }
+            const val = inputProdName.value.trim().toLowerCase();
+            if (!val) {
+                prodHint.style.display = "none";
+                return;
+            }
+            const match = appState.products.find(p => p.name.trim().toLowerCase() === val);
+            if (match) {
+                prodHint.style.display = "block";
+                prodHint.innerHTML = `ℹ️ <strong>"${match.name}" ya existe</strong> en inventario (Stock actual: ${match.stock} u. | Costo: $${Number(match.costPrice).toFixed(2)} | Venta: $${Number(match.sellingPrice).toFixed(2)}). Al guardar, se actualizarán los precios y se sumará el stock ingresado.`;
+            } else {
+                prodHint.style.display = "none";
+            }
+        });
+    }
+
     // 4. FORMULARIO REABASTECIMIENTO
     const formRestock = document.getElementById("form-restock");
     formRestock.addEventListener("submit", async (e) => {
@@ -1235,6 +1320,8 @@ function setupFormHandlers() {
         const prodId = document.getElementById("restock-product-id").value;
         const qty = parseInt(document.getElementById("restock-qty").value);
         const costPrice = parseFloat(document.getElementById("restock-cost").value);
+        const sellingPriceInput = document.getElementById("restock-selling-price");
+        const sellingPrice = sellingPriceInput && sellingPriceInput.value ? parseFloat(sellingPriceInput.value) : null;
         const date = document.getElementById("restock-date").value;
 
         const product = appState.products.find(p => p.id === prodId);
@@ -1250,6 +1337,12 @@ function setupFormHandlers() {
             }
 
             product.stock += qty; // Aumentar stock en inventario
+            if (!isNaN(costPrice) && costPrice >= 0) {
+                product.costPrice = costPrice;
+            }
+            if (sellingPrice !== null && !isNaN(sellingPrice) && sellingPrice > 0) {
+                product.sellingPrice = sellingPrice;
+            }
 
             let newTxId = null;
             if (choice === "expense") {
@@ -1287,6 +1380,7 @@ function setupFormHandlers() {
 
             saveState();
             CloudSync.recordRestock(entry, choice === "expense" ? newTx : null);
+            CloudSync.saveProduct(product);
             closeModal("restock");
             refreshActiveView();
             if (document.getElementById("modal-product-history")?.classList.contains("active")) {
@@ -1294,9 +1388,9 @@ function setupFormHandlers() {
             }
 
             if (choice === "expense") {
-                showToast("Stock reabastecido y gasto registrado.", "success");
+                showToast(`Stock reabastecido (+${qty} u.), precios actualizados y gasto registrado en Caja.`, "success");
             } else {
-                showToast("Stock reabastecido correctamente (sin registrar gasto).", "success");
+                showToast(`Stock reabastecido (+${qty} u.) y precios actualizados correctamente.`, "success");
             }
         }
     });
@@ -2092,6 +2186,8 @@ function handleQuickRestock(productId) {
     document.getElementById("restock-product-id").value = productId;
     document.getElementById("restock-product-name").textContent = product.name;
     document.getElementById("restock-cost").value = product.costPrice;
+    const restockSellingInput = document.getElementById("restock-selling-price");
+    if (restockSellingInput) restockSellingInput.value = product.sellingPrice;
     document.getElementById("restock-qty").value = 10;
 
     lucide.createIcons();
@@ -2100,6 +2196,9 @@ function handleQuickRestock(productId) {
 function handleEditProduct(productId) {
     const product = appState.products.find(p => p.id === productId);
     if (!product) return;
+
+    const prodHint = document.getElementById("product-name-hint");
+    if (prodHint) prodHint.style.display = "none";
 
     openModal("product");
 
@@ -2406,6 +2505,9 @@ async function handleDeleteStockEntry(entryId) {
         // El producto ya no existe en el catálogo, simplemente quitar el registro del historial
         appState.stockEntries.splice(entryIndex, 1);
         saveState();
+        if (typeof CloudSync !== 'undefined' && CloudSync.deleteStockEntry) {
+            CloudSync.deleteStockEntry(entry.id);
+        }
         renderProductHistory();
         showToast("Registro de ingreso eliminado.", "info");
         return;
@@ -2432,8 +2534,9 @@ async function handleDeleteStockEntry(entryId) {
         // Quitar la entrada del historial
         appState.stockEntries.splice(entryIndex, 1);
         saveState();
-        if (typeof CloudSync !== 'undefined' && CloudSync.saveProduct) {
-            CloudSync.saveProduct(product);
+        if (typeof CloudSync !== 'undefined') {
+            if (CloudSync.saveProduct) CloudSync.saveProduct(product);
+            if (CloudSync.deleteStockEntry) CloudSync.deleteStockEntry(entry.id);
         }
         refreshActiveView();
         renderProductHistory();
@@ -2450,6 +2553,9 @@ async function handleDeleteStockEntry(entryId) {
         appState.stockEntries = appState.stockEntries.filter(e => e.productId !== product.id);
 
         saveState();
+        if (typeof CloudSync !== 'undefined' && CloudSync.deleteProduct) {
+            CloudSync.deleteProduct(product.id);
+        }
         refreshActiveView();
         renderProductHistory();
         showToast(`Producto "${product.name}" eliminado completamente.`, "info");

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'silvio-cache-v14';
+const CACHE_NAME = 'silvio-cache-v15';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

@@ -18,15 +18,16 @@ module.exports = async function handler(req, res) {
   try {
     await ensureTables();
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { id, description, value, date, category, productId, qty } = body;
+    const { id, description, value, date, category, productId, qty, unitCost } = body;
 
     const quantity = Number(qty) || 1;
     const saleValue = Number(value) || 0;
+    const itemUnitCost = unitCost !== undefined && unitCost !== null && !isNaN(Number(unitCost)) ? Number(unitCost) : null;
 
     // 1. Insertar transacción
     await sql`
-      INSERT INTO silvio_transactions (id, type, description, value, date, category, product_id, qty)
-      VALUES (${id}, 'ingreso', ${description || 'VENTA'}, ${saleValue}, ${date}, ${category || 'Ventas'}, ${productId || null}, ${quantity})
+      INSERT INTO silvio_transactions (id, type, description, value, date, category, product_id, qty, unit_cost)
+      VALUES (${id}, 'ingreso', ${description || 'VENTA'}, ${saleValue}, ${date}, ${category || 'Ventas'}, ${productId || null}, ${quantity}, ${itemUnitCost})
       ON CONFLICT (id) DO NOTHING;
     `;
 

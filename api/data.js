@@ -31,7 +31,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const [products, transactions, stockEntries, loans, categoriesMeta] = await Promise.all([
         sql`SELECT id, name, category, stock, cost_price as "costPrice", selling_price as "sellingPrice", min_stock as "minStock", created_at as "createdAt" FROM silvio_products ORDER BY name ASC`,
-        sql`SELECT id, type, description, value, date, category, product_id as "productId", qty, created_at as "createdAt" FROM silvio_transactions ORDER BY date DESC, created_at DESC`,
+        sql`SELECT id, type, description, value, date, category, product_id as "productId", qty, unit_cost as "unitCost", created_at as "createdAt" FROM silvio_transactions ORDER BY date DESC, created_at DESC`,
         sql`SELECT id, type, product_id as "productId", product_name as "productName", category, qty, cost_price as "costPrice", selling_price as "sellingPrice", date, tx_id as "txId" FROM silvio_stock_entries ORDER BY date DESC`,
         sql`SELECT 
               id, 
@@ -75,7 +75,8 @@ module.exports = async function handler(req, res) {
           transactions: transactions.map(t => ({
             ...t,
             value: Number(t.value) || 0,
-            qty: Number(t.qty) || 1
+            qty: Number(t.qty) || 1,
+            unitCost: t.unitCost !== null && t.unitCost !== undefined ? Number(t.unitCost) : null
           })),
           stockEntries: stockEntries.map(e => ({
             ...e,
@@ -137,8 +138,8 @@ module.exports = async function handler(req, res) {
 
       for (const t of transactions) {
         await sql`
-          INSERT INTO silvio_transactions (id, type, description, value, date, category, product_id, qty)
-          VALUES (${t.id}, ${t.type}, ${t.description || ''}, ${t.value || 0}, ${t.date || new Date().toISOString().substring(0, 10)}, ${t.category || ''}, ${t.productId || null}, ${t.qty || 1})
+          INSERT INTO silvio_transactions (id, type, description, value, date, category, product_id, qty, unit_cost)
+          VALUES (${t.id}, ${t.type}, ${t.description || ''}, ${t.value || 0}, ${t.date || new Date().toISOString().substring(0, 10)}, ${t.category || ''}, ${t.productId || null}, ${t.qty || 1}, ${t.unitCost !== undefined && t.unitCost !== null ? Number(t.unitCost) : null})
           ON CONFLICT (id) DO NOTHING;
         `;
       }
