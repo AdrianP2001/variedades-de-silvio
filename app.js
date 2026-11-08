@@ -1087,175 +1087,208 @@ function setupFormHandlers() {
         }
     });
 
+    let isSubmittingSale = false;
     formSale.addEventListener("submit", (e) => {
         e.preventDefault();
-        const date = document.getElementById("sale-date").value;
-        const prodId = selectSaleProduct.value;
-        const qty = parseInt(inputSaleQty.value) || 1;
-        const desc = inputSaleDesc.value;
-        const val = parseFloat(inputSaleVal.value);
-        const cat = document.getElementById("sale-category").value;
+        if (isSubmittingSale) return;
+        isSubmittingSale = true;
 
-        if (prodId) {
-            // Venta vinculada a producto del inventario
-            const product = appState.products.find(p => p.id === prodId);
-            if (product.stock < qty) {
-                showToast(`Stock insuficiente. Solo quedan ${product.stock} unidades.`, "error");
-                return;
+        try {
+            const date = document.getElementById("sale-date").value;
+            const prodId = selectSaleProduct.value;
+            const qty = parseInt(inputSaleQty.value) || 1;
+            const desc = inputSaleDesc.value;
+            const val = parseFloat(inputSaleVal.value);
+            const cat = document.getElementById("sale-category").value;
+
+            if (prodId) {
+                // Venta vinculada a producto del inventario
+                const product = appState.products.find(p => p.id === prodId);
+                if (product.stock < qty) {
+                    showToast(`Stock insuficiente. Solo quedan ${product.stock} unidades.`, "error");
+                    return;
+                }
+                product.stock -= qty; // Descontar stock
             }
-            product.stock -= qty; // Descontar stock
+
+            // Registrar transacción
+            const newTx = {
+                id: generateId("tx"),
+                date: date,
+                type: "ingreso",
+                description: desc,
+                category: cat,
+                value: val,
+                productId: prodId || null,
+                qty: prodId ? qty : null,
+                // Se congela el costo del producto al momento de la venta para que la
+                // ganancia histórica no cambie si después se edita el precio de costo
+                unitCost: prodId ? appState.products.find(p => p.id === prodId).costPrice : null
+            };
+
+            appState.transactions.push(newTx);
+            saveState();
+            CloudSync.recordSale(newTx);
+            closeModal("sale");
+            refreshActiveView();
+            showToast("Venta registrada correctamente.", "success");
+        } finally {
+            isSubmittingSale = false;
         }
-
-        // Registrar transacción
-        const newTx = {
-            id: generateId("tx"),
-            date: date,
-            type: "ingreso",
-            description: desc,
-            category: cat,
-            value: val,
-            productId: prodId || null,
-            qty: prodId ? qty : null,
-            // Se congela el costo del producto al momento de la venta para que la
-            // ganancia histórica no cambie si después se edita el precio de costo
-            unitCost: prodId ? appState.products.find(p => p.id === prodId).costPrice : null
-        };
-
-        appState.transactions.push(newTx);
-        saveState();
-        CloudSync.recordSale(newTx);
-        closeModal("sale");
-        refreshActiveView();
-        showToast("Venta registrada correctamente.", "success");
     });
 
     // 2. FORMULARIO GASTO
     const formExpense = document.getElementById("form-expense");
+    let isSubmittingExpense = false;
     formExpense.addEventListener("submit", (e) => {
         e.preventDefault();
-        const date = document.getElementById("expense-date").value;
-        const desc = document.getElementById("expense-description").value;
-        const val = parseFloat(document.getElementById("expense-value").value);
-        const cat = document.getElementById("expense-category").value;
+        if (isSubmittingExpense) return;
+        isSubmittingExpense = true;
 
-        const newTx = {
-            id: generateId("tx"),
-            date: date,
-            type: "egreso",
-            description: desc,
-            category: cat,
-            value: val
-        };
+        try {
+            const date = document.getElementById("expense-date").value;
+            const desc = document.getElementById("expense-description").value;
+            const val = parseFloat(document.getElementById("expense-value").value);
+            const cat = document.getElementById("expense-category").value;
 
-        appState.transactions.push(newTx);
-        saveState();
-        CloudSync.recordExpense(newTx);
-        closeModal("expense");
-        refreshActiveView();
-        showToast("Gasto registrado correctamente.", "success");
+            const newTx = {
+                id: generateId("tx"),
+                date: date,
+                type: "egreso",
+                description: desc,
+                category: cat,
+                value: val
+            };
+
+            appState.transactions.push(newTx);
+            saveState();
+            CloudSync.recordExpense(newTx);
+            closeModal("expense");
+            refreshActiveView();
+            showToast("Gasto registrado correctamente.", "success");
+        } finally {
+            isSubmittingExpense = false;
+        }
     });
 
     // 3. FORMULARIO NUEVO/EDITAR PRODUCTO
     const formProduct = document.getElementById("form-product");
+    let isSubmittingProduct = false;
     formProduct.addEventListener("submit", (e) => {
         e.preventDefault();
-        const prodId = document.getElementById("product-id").value;
-        const name = (document.getElementById("product-name").value || "").trim();
-        const category = document.getElementById("product-category").value;
-        const costPrice = parseFloat(document.getElementById("product-cost-price").value);
-        const sellingPrice = parseFloat(document.getElementById("product-selling-price").value);
-        const stock = parseInt(document.getElementById("product-stock").value);
-        const minStock = parseInt(document.getElementById("product-min-stock").value);
+        if (isSubmittingProduct) return;
+        isSubmittingProduct = true;
 
-        let targetProdId = prodId;
+        try {
+            const prodId = document.getElementById("product-id").value;
+            const name = (document.getElementById("product-name").value || "").trim();
+            const category = document.getElementById("product-category").value;
+            const costPrice = parseFloat(document.getElementById("product-cost-price").value);
+            const sellingPrice = parseFloat(document.getElementById("product-selling-price").value);
+            const stock = parseInt(document.getElementById("product-stock").value);
+            const minStock = parseInt(document.getElementById("product-min-stock").value);
 
-        if (prodId) {
-            // Edición
-            const product = appState.products.find(p => p.id === prodId);
-            product.name = name;
-            product.category = category;
-            product.costPrice = costPrice;
-            product.sellingPrice = sellingPrice;
-            product.stock = stock;
-            product.minStock = minStock;
-            if (product.initialStock === undefined) {
-                product.initialStock = stock;
-            }
-            showToast("Producto actualizado correctamente.", "success");
-        } else {
-            // Nuevo Producto - Verificar si ya existe por nombre para evitar duplicados
-            const existingProduct = appState.products.find(p => p.name.trim().toLowerCase() === name.toLowerCase());
-            const now = new Date();
+            let targetProdId = prodId;
+            let newEntryToSync = null;
 
-            if (existingProduct) {
-                // Ya existía: actualizar precios, categoría y sumar el nuevo stock
-                targetProdId = existingProduct.id;
-                existingProduct.costPrice = costPrice;
-                existingProduct.sellingPrice = sellingPrice;
-                existingProduct.stock = (Number(existingProduct.stock) || 0) + stock;
-                existingProduct.category = category;
-                if (!isNaN(minStock) && minStock >= 0) existingProduct.minStock = minStock;
-
-                // Registrar en historial de ingresos de mercancía
-                if (!appState.stockEntries) appState.stockEntries = [];
-                const entry = {
-                    id: generateId("entry"),
-                    type: "reabastecimiento",
-                    productId: existingProduct.id,
-                    productName: existingProduct.name,
-                    category: existingProduct.category,
-                    qty: stock,
-                    costPrice: costPrice,
-                    sellingPrice: sellingPrice,
-                    date: now.toISOString(),
-                    txId: null
-                };
-                appState.stockEntries.unshift(entry);
-
-                showToast(`"${existingProduct.name}" ya existía: precios actualizados (Costo: $${costPrice.toFixed(2)}, Venta: $${sellingPrice.toFixed(2)}) y se sumaron +${stock} u. al inventario.`, "success");
+            if (prodId) {
+                // Edición
+                const product = appState.products.find(p => p.id === prodId);
+                product.name = name;
+                product.category = category;
+                product.costPrice = costPrice;
+                product.sellingPrice = sellingPrice;
+                product.stock = stock;
+                product.minStock = minStock;
+                if (product.initialStock === undefined) {
+                    product.initialStock = stock;
+                }
+                showToast("Producto actualizado correctamente.", "success");
             } else {
-                // Nuevo producto real
-                const newProduct = {
-                    id: generateId("prod"),
-                    name,
-                    category,
-                    costPrice,
-                    sellingPrice,
-                    stock,
-                    initialStock: stock,
-                    minStock,
-                    createdAt: now.toISOString()
-                };
-                targetProdId = newProduct.id;
-                appState.products.push(newProduct);
+                // Nuevo Producto - Verificar si ya existe por nombre para evitar duplicados
+                const existingProduct = appState.products.find(p => p.name.trim().toLowerCase() === name.toLowerCase());
+                const now = new Date();
 
-                // Registrar en historial de ingresos de mercancía
-                if (!appState.stockEntries) appState.stockEntries = [];
-                const entry = {
-                    id: generateId("entry"),
-                    type: "nuevo_producto",
-                    productId: newProduct.id,
-                    productName: newProduct.name,
-                    category: newProduct.category,
-                    qty: stock,
-                    costPrice: costPrice,
-                    sellingPrice: sellingPrice,
-                    date: now.toISOString(),
-                    txId: null
-                };
-                appState.stockEntries.unshift(entry);
+                if (existingProduct) {
+                    // Ya existía: actualizar precios, categoría y sumar el nuevo stock
+                    targetProdId = existingProduct.id;
+                    existingProduct.costPrice = costPrice;
+                    existingProduct.sellingPrice = sellingPrice;
+                    existingProduct.stock = (Number(existingProduct.stock) || 0) + stock;
+                    existingProduct.category = category;
+                    if (!isNaN(minStock) && minStock >= 0) existingProduct.minStock = minStock;
 
-                showToast("Producto añadido al inventario.", "success");
+                    // Registrar en historial de ingresos de mercancía
+                    if (!appState.stockEntries) appState.stockEntries = [];
+                    const entry = {
+                        id: generateId("entry"),
+                        type: "reabastecimiento",
+                        productId: existingProduct.id,
+                        productName: existingProduct.name,
+                        category: existingProduct.category,
+                        qty: stock,
+                        costPrice: costPrice,
+                        sellingPrice: sellingPrice,
+                        date: now.toISOString(),
+                        txId: null
+                    };
+                    appState.stockEntries.unshift(entry);
+                    // Sincronizar entrada sin duplicar stock (tipo nuevo_producto evita sumar doble en Neon)
+                    newEntryToSync = { ...entry, type: "nuevo_producto" };
+
+                    showToast(`"${existingProduct.name}" ya existía: precios actualizados (Costo: $${costPrice.toFixed(2)}, Venta: $${sellingPrice.toFixed(2)}) y se sumaron +${stock} u. al inventario.`, "success");
+                } else {
+                    // Nuevo producto real
+                    const newProduct = {
+                        id: generateId("prod"),
+                        name,
+                        category,
+                        costPrice,
+                        sellingPrice,
+                        stock,
+                        initialStock: stock,
+                        minStock,
+                        createdAt: now.toISOString()
+                    };
+                    targetProdId = newProduct.id;
+                    appState.products.push(newProduct);
+
+                    // Registrar en historial de ingresos de mercancía
+                    if (!appState.stockEntries) appState.stockEntries = [];
+                    const entry = {
+                        id: generateId("entry"),
+                        type: "nuevo_producto",
+                        productId: newProduct.id,
+                        productName: newProduct.name,
+                        category: newProduct.category,
+                        qty: stock,
+                        costPrice: costPrice,
+                        sellingPrice: sellingPrice,
+                        date: now.toISOString(),
+                        txId: null
+                    };
+                    appState.stockEntries.unshift(entry);
+                    newEntryToSync = entry;
+
+                    showToast("Producto añadido al inventario.", "success");
+                }
             }
-        }
 
-        saveState();
-        const savedProd = appState.products.find(p => p.id === targetProdId);
-        if (savedProd && typeof CloudSync !== 'undefined') CloudSync.saveProduct(savedProd);
-        closeModal("product");
-        refreshActiveView();
-        if (document.getElementById("modal-product-history")?.classList.contains("active")) {
-            renderProductHistory();
+            saveState();
+            const savedProd = appState.products.find(p => p.id === targetProdId);
+            if (savedProd && typeof CloudSync !== 'undefined') {
+                CloudSync.saveProduct(savedProd);
+                if (newEntryToSync && CloudSync.recordRestock) {
+                    CloudSync.recordRestock(newEntryToSync, null);
+                }
+            }
+            closeModal("product");
+            refreshActiveView();
+            if (document.getElementById("modal-product-history")?.classList.contains("active")) {
+                renderProductHistory();
+            }
+        } finally {
+            isSubmittingProduct = false;
         }
     });
 
@@ -1315,83 +1348,99 @@ function setupFormHandlers() {
 
     // 4. FORMULARIO REABASTECIMIENTO
     const formRestock = document.getElementById("form-restock");
+    let isSubmittingRestock = false;
     formRestock.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const prodId = document.getElementById("restock-product-id").value;
-        const qty = parseInt(document.getElementById("restock-qty").value);
-        const costPrice = parseFloat(document.getElementById("restock-cost").value);
-        const sellingPriceInput = document.getElementById("restock-selling-price");
-        const sellingPrice = sellingPriceInput && sellingPriceInput.value ? parseFloat(sellingPriceInput.value) : null;
-        const date = document.getElementById("restock-date").value;
+        if (isSubmittingRestock) return;
+        isSubmittingRestock = true;
 
-        const product = appState.products.find(p => p.id === prodId);
-        if (product) {
-            const totalCost = costPrice * qty;
+        try {
+            const prodId = document.getElementById("restock-product-id").value;
+            const qty = parseInt(document.getElementById("restock-qty").value);
+            const costPrice = parseFloat(document.getElementById("restock-cost").value);
+            const sellingPriceInput = document.getElementById("restock-selling-price");
+            const sellingPrice = sellingPriceInput && sellingPriceInput.value ? parseFloat(sellingPriceInput.value) : null;
+            const date = document.getElementById("restock-date").value;
 
-            // Mostrar modal de confirmación personalizado para decidir el gasto
-            const choice = await showRestockConfirm(product.name, qty, totalCost);
-
-            if (choice === "cancel") {
-                // Cancelar la operación de reabastecimiento por completo
+            if (isNaN(qty) || qty <= 0) {
+                showToast("Por favor ingresa una cantidad válida mayor a 0.", "error");
                 return;
             }
 
-            product.stock += qty; // Aumentar stock en inventario
-            if (!isNaN(costPrice) && costPrice >= 0) {
-                product.costPrice = costPrice;
-            }
-            if (sellingPrice !== null && !isNaN(sellingPrice) && sellingPrice > 0) {
-                product.sellingPrice = sellingPrice;
-            }
+            const product = appState.products.find(p => p.id === prodId);
+            if (product) {
+                const totalCost = costPrice * qty;
 
-            let newTxId = null;
-            if (choice === "expense") {
-                // Registrar egreso por compra de mercancía
-                newTxId = generateId("tx");
-                const newTx = {
-                    id: newTxId,
-                    date: date,
-                    type: "egreso",
-                    description: `REABASTECIMIENTO: ${product.name} (x${qty})`,
-                    category: "Compra de Mercancía",
-                    value: totalCost,
+                // Mostrar modal de confirmación personalizado para decidir el gasto
+                const choice = await showRestockConfirm(product.name, qty, totalCost);
+
+                if (choice === "cancel") {
+                    // Cancelar la operación de reabastecimiento por completo
+                    return;
+                }
+
+                product.stock += qty; // Aumentar stock en inventario local
+                if (!isNaN(costPrice) && costPrice >= 0) {
+                    product.costPrice = costPrice;
+                }
+                if (sellingPrice !== null && !isNaN(sellingPrice) && sellingPrice > 0) {
+                    product.sellingPrice = sellingPrice;
+                }
+
+                let newTxId = null;
+                let newTx = null;
+                if (choice === "expense") {
+                    // Registrar egreso por compra de mercancía
+                    newTxId = generateId("tx");
+                    newTx = {
+                        id: newTxId,
+                        date: date,
+                        type: "egreso",
+                        description: `REABASTECIMIENTO: ${product.name} (x${qty})`,
+                        category: "Compra de Mercancía",
+                        value: totalCost,
+                        productId: prodId,
+                        qty: qty
+                    };
+                    appState.transactions.push(newTx);
+                }
+
+                // Registrar en historial de ingresos de mercancía
+                if (!appState.stockEntries) appState.stockEntries = [];
+                const now = new Date();
+                const entry = {
+                    id: generateId("entry"),
+                    type: "reabastecimiento",
                     productId: prodId,
-                    qty: qty
+                    productName: product.name,
+                    category: product.category,
+                    qty: qty,
+                    costPrice: costPrice,
+                    sellingPrice: product.sellingPrice,
+                    date: now.toISOString(),
+                    txId: newTxId
                 };
-                appState.transactions.push(newTx);
-            }
+                appState.stockEntries.unshift(entry);
 
-            // Registrar en historial de ingresos de mercancía
-            if (!appState.stockEntries) appState.stockEntries = [];
-            const now = new Date();
-            const entry = {
-                id: generateId("entry"),
-                type: "reabastecimiento",
-                productId: prodId,
-                productName: product.name,
-                category: product.category,
-                qty: qty,
-                costPrice: costPrice,
-                sellingPrice: product.sellingPrice,
-                date: now.toISOString(),
-                txId: newTxId
-            };
-            appState.stockEntries.unshift(entry);
+                saveState();
+                // Sincronizar atómicamente con Neon vía /api/restock (actualiza stock, precios e historial en una sola operación)
+                if (typeof CloudSync !== 'undefined' && CloudSync.recordRestock) {
+                    CloudSync.recordRestock(entry, choice === "expense" ? newTx : null);
+                }
+                closeModal("restock");
+                refreshActiveView();
+                if (document.getElementById("modal-product-history")?.classList.contains("active")) {
+                    renderProductHistory();
+                }
 
-            saveState();
-            CloudSync.recordRestock(entry, choice === "expense" ? newTx : null);
-            CloudSync.saveProduct(product);
-            closeModal("restock");
-            refreshActiveView();
-            if (document.getElementById("modal-product-history")?.classList.contains("active")) {
-                renderProductHistory();
+                if (choice === "expense") {
+                    showToast(`Stock reabastecido (+${qty} u.), precios actualizados y gasto registrado en Caja.`, "success");
+                } else {
+                    showToast(`Stock reabastecido (+${qty} u.) y precios actualizados correctamente.`, "success");
+                }
             }
-
-            if (choice === "expense") {
-                showToast(`Stock reabastecido (+${qty} u.), precios actualizados y gasto registrado en Caja.`, "success");
-            } else {
-                showToast(`Stock reabastecido (+${qty} u.) y precios actualizados correctamente.`, "success");
-            }
+        } finally {
+            isSubmittingRestock = false;
         }
     });
 
@@ -2188,7 +2237,10 @@ function handleQuickRestock(productId) {
     document.getElementById("restock-cost").value = product.costPrice;
     const restockSellingInput = document.getElementById("restock-selling-price");
     if (restockSellingInput) restockSellingInput.value = product.sellingPrice;
-    document.getElementById("restock-qty").value = 10;
+    const inputQty = document.getElementById("restock-qty");
+    inputQty.value = 1;
+    inputQty.focus();
+    inputQty.select();
 
     lucide.createIcons();
 }
@@ -2252,11 +2304,11 @@ function ensureStockEntriesInitialized() {
 
     // Sincronizar catálogo existente con el historial
     appState.products.forEach(p => {
-        const hasEntry = appState.stockEntries.some(e => e.productId === p.id && (e.type === "nuevo_producto" || e.type === "base_inicial"));
+        const hasEntry = appState.stockEntries.some(e => e.productId === p.id);
         if (!hasEntry) {
             const isBase = !p.createdAt;
-            appState.stockEntries.push({
-                id: "entry-" + p.id,
+            const newEntry = {
+                id: "entry-base-" + p.id,
                 type: isBase ? "base_inicial" : "nuevo_producto",
                 productId: p.id,
                 productName: p.name,
@@ -2264,10 +2316,14 @@ function ensureStockEntriesInitialized() {
                 qty: p.initialStock !== undefined ? p.initialStock : p.stock,
                 costPrice: p.costPrice,
                 sellingPrice: p.sellingPrice,
-                date: p.createdAt || null, // null indica Inventario Base histórico, no de hoy
+                date: p.createdAt || null,
                 txId: null
-            });
+            };
+            appState.stockEntries.push(newEntry);
             modified = true;
+            if (typeof CloudSync !== 'undefined' && CloudSync.recordRestock) {
+                CloudSync.recordRestock(newEntry, null);
+            }
         }
     });
 
@@ -3785,7 +3841,10 @@ function showRestockConfirm(productName, qty, totalCost) {
         activateModal(modal);
         lucide.createIcons();
 
+        let hasResolved = false;
         const cleanupAndClose = (result) => {
+            if (hasResolved) return;
+            hasResolved = true;
             btnExpense.removeEventListener("click", onExpense);
             btnNoExpense.removeEventListener("click", onNoExpense);
             btnCancel.removeEventListener("click", onCancel);

@@ -38,18 +38,20 @@ module.exports = async function handler(req, res) {
           selling_price = EXCLUDED.selling_price;
       `;
 
-      // 2. Aumentar stock del producto y actualizar precios de costo y venta en Neon
-      const costPrice = Number(entry.costPrice) >= 0 ? Number(entry.costPrice) : null;
-      const sellingPrice = Number(entry.sellingPrice) > 0 ? Number(entry.sellingPrice) : null;
+      // 2. Aumentar stock del producto y actualizar precios de costo y venta en Neon solo si es reabastecimiento
+      if (entry.type !== 'nuevo_producto' && entry.type !== 'base_inicial') {
+        const costPrice = Number(entry.costPrice) >= 0 ? Number(entry.costPrice) : null;
+        const sellingPrice = Number(entry.sellingPrice) > 0 ? Number(entry.sellingPrice) : null;
 
-      await sql`
-        UPDATE silvio_products
-        SET stock = stock + ${Number(entry.qty) || 0},
-            cost_price = COALESCE(${costPrice}, cost_price),
-            selling_price = COALESCE(${sellingPrice}, selling_price),
-            updated_at = NOW()
-        WHERE id = ${entry.productId};
-      `;
+        await sql`
+          UPDATE silvio_products
+          SET stock = stock + ${Number(entry.qty) || 0},
+              cost_price = COALESCE(${costPrice}, cost_price),
+              selling_price = COALESCE(${sellingPrice}, selling_price),
+              updated_at = NOW()
+          WHERE id = ${entry.productId};
+        `;
+      }
     }
 
     // 3. Si se registró gasto
