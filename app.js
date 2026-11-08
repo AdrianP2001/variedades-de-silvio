@@ -2372,11 +2372,11 @@ function renderProductHistory() {
 
     // Filtro por periodo
     if (periodVal === "today") {
-        list = list.filter(e => e.date && e.date.substring(0, 10) === todayStr);
+        list = list.filter(e => e.date && getLocalDateString(e.date) === todayStr);
     } else if (periodVal === "week") {
         list = list.filter(e => e.date && new Date(e.date) >= oneWeekAgo);
     } else if (periodVal === "month") {
-        list = list.filter(e => e.date && e.date.substring(0, 7) === currentMonthPrefix);
+        list = list.filter(e => e.date && getLocalYearMonthString(e.date) === currentMonthPrefix);
     }
 
     // Filtro por búsqueda
@@ -2416,12 +2416,16 @@ function renderProductHistory() {
 
         if (entry.date) {
             const d = new Date(entry.date);
-            const pDateStr = entry.date.substring(0, 10);
+            const pDateStr = getLocalDateString(d);
+            const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            const yesterdayStr = getLocalDateString(yesterdayDate);
             const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
             if (pDateStr === todayStr) {
                 isToday = true;
                 dateFormatted = `Hoy, ${timeStr}`;
+            } else if (pDateStr === yesterdayStr) {
+                dateFormatted = `Ayer, ${timeStr}`;
             } else {
                 const day = String(d.getDate()).padStart(2, '0');
                 const month = String(d.getMonth() + 1).padStart(2, '0');
