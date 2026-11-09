@@ -1,4 +1,4 @@
-const CACHE_NAME = 'silvio-cache-v17';
+const CACHE_NAME = 'silvio-cache-v18';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -51,10 +51,10 @@ self.addEventListener('fetch', (e) => {
         return networkResponse;
       })
       .catch(() => {
-        return caches.match(e.request).then((cachedResponse) => {
+        return caches.match(e.request, { ignoreSearch: true }).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
           if (e.request.mode === 'navigate') {
-            return caches.match('./index.html');
+            return caches.match('./index.html', { ignoreSearch: true });
           }
         });
       })

@@ -24,6 +24,19 @@ module.exports = async function handler(req, res) {
     const saleValue = Number(value) || 0;
     const itemUnitCost = unitCost !== undefined && unitCost !== null && !isNaN(Number(unitCost)) ? Number(unitCost) : null;
 
+    // Protección de idempotencia: verificar si la transacción ya fue procesada previamente
+    const existingTx = await sql`
+      SELECT id FROM silvio_transactions WHERE id = ${id} LIMIT 1;
+    `;
+    if (existingTx && existingTx.length > 0) {
+      // Ya existe: no volver a descontar stock
+      return res.status(200).json({
+        success: true,
+        connected: true,
+        duplicate: true
+      });
+    }
+
     // 1. Insertar transacción
     await sql`
       INSERT INTO silvio_transactions (id, type, description, value, date, category, product_id, qty, unit_cost)

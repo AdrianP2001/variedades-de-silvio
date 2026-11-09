@@ -153,6 +153,7 @@ const CloudSync = {
     isCloudConnected: false,
     pollInterval: null,
     isSyncing: false,
+    isProcessingQueue: false,
     syncQueueKey: "silvio_pending_sync_queue",
 
     getQueue() {
@@ -170,6 +171,16 @@ const CloudSync = {
 
     addToQueue(action, payload) {
         const queue = this.getQueue();
+        // Evitar duplicados idénticos en la cola offline
+        const payloadId = payload && (payload.id || (payload.entry && payload.entry.id) || (payload.item && payload.item.id));
+        if (payloadId) {
+            const alreadyInQueue = queue.some(item => {
+                const itemId = item.payload && (item.payload.id || (item.payload.entry && item.payload.entry.id));
+                return item.action === action && itemId === payloadId;
+            });
+            if (alreadyInQueue) return;
+        }
+
         queue.push({
             id: "sync-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
             action,
@@ -197,7 +208,7 @@ const CloudSync = {
         window.addEventListener("offline", () => {
             this.isOnline = false;
             this.updateStatusBadge();
-            showToast("Sin conexión a internet. Todas las ventas se guardan en tu equipo y se subirán solas al volver la luz/red.", "warning");
+            showToast("Sin conexión a internet. Todas las ventas se guardan en tu equipo y se subirán solas al volver la red.", "warning");
         });
 
         window.addEventListener("focus", () => {
@@ -255,29 +266,187 @@ const CloudSync = {
         }
 
         try {
-            const res = await fetch("/api/data", { method: "GET", cache: "no-store" });
-            if (!res.ok) {
+            // 1. Probar conectividad con Neon
+            const testRes = await fetch("/api/data", { method: "GET", cache: "no-store" });
+            if (!testRes.ok) {
                 this.isCloudConnected = false;
                 this.updateStatusBadge();
                 return;
             }
-            const json = await res.json();
+            const testJson = await testRes.json();
+            if (!testJson.connected) {
+                this.isCloudConnected = false;
+                this.updateStatusBadge();
+                return;
+            }
 
-            if (json.connected) {
-                this.isCloudConnected = true;
+            this.isCloudConnected = true;
 
-                // Primero subir cualquier venta guardada durante el corte de luz
-                await this.processQueue();
+            // 2. Si hay operaciones pendientes en la cola offline, procesarlas PRIMERO
+            await this.processQueue();
 
-                const hasCloudProducts = Array.isArray(json.data.products) && json.data.products.length > 0;
-                const hasLocalProducts = Array.isArray(appState.products) && appState.products.length > 0;
+            // 3. SOLO después de procesar la cola, consultar y aplicar el estado consolidado de Neon
+            const queue = this.getQueue();
+            if (queue.length === 0) {
+                const freshRes = await fetch("/api/data", { method: "GET", cache: "no-store" });
+                if (freshRes.ok) {
+                    const json = await freshRes.json();
+                    if (json.connected && json.data) {
+                        const hasCloudProducts = Array.isArray(json.data.products) && json.data.products.length > 0;
+                        const hasLocalProducts = Array.isArray(appState.products) && appState.products.length > 0;
 
-                if (!hasCloudProducts && hasLocalProducts) {
-                    console.log("Sembrando datos iniciales en Neon Postgres...");
-                    await this.pushFullState(appState);
-                } else if (hasCloudProducts) {
-                    const queue = this.getQueue();
-                    if (queue.length === 0) {
+                        if (!hasCloudProducts && hasLocalProducts) {
+                            console.log("Sembrando datos iniciales en Neon Postgres...");
+                            await this.pushFullState(appState);
+                        } else if (hasCloudProducts) {
+                            appState = {
+                                products: json.data.products || [],
+                                transactions: json.data.transactions || [],
+                                stockEntries: json.data.stockEntries || [],
+                                loans: (json.data.loans || []).map(l => ({
+                                    id: l.id,
+                                    client: l.client || l.clientName || 'Cliente',
+                                    amount: Number(l.amount) || 0,
+                                    interest: Number(l.interest) || 0,
+                                    total: Number(l.total) || Number(l.totalAmount) || 0,
+                                    days: Number(l.days) || 1,
+                                    frequency: l.frequency || 'diaria',
+                                    paid: Number(l.paid) || 0,
+                                    remainingAmount: l.remainingAmount !== undefined && !isNaN(Number(l.remainingAmount)) ? Number(l.remainingAmount) : Math.max(0, (Number(l.total) || 0) - (Number(l.paid) || 0)),
+                                    date: l.date || l.loanDate || getLocalDateString(),
+                                    status: l.status || 'active',
+                                    payments: Array.isArray(l.payments) ? l.payments : []
+                                })),
+                                categories: json.data.categories || ["Ropa", "Calzado", "Perfumes", "Accesorios", "Otros"]
+                            };
+                            saveState();
+                            refreshActiveView();
+                        }
+                    }
+                }
+            }
+            this.updateStatusBadge();
+        } catch (e) {
+            this.isCloudConnected = false;
+            this.updateStatusBadge();
+        }
+    },
+
+    async processQueue() {
+        if (this.isProcessingQueue || !this.isOnline || !this.isCloudConnected) return;
+        this.isProcessingQueue = true;
+
+        try {
+            let queue = this.getQueue();
+            if (queue.length === 0) return;
+
+            let syncedCount = 0;
+            const remainingQueue = [];
+
+            for (const item of queue) {
+                try {
+                    let success = false;
+                    if (item.action === "sale") {
+                        const res = await fetch("/api/sale", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    } else if (item.action === "expense") {
+                        const res = await fetch("/api/expense", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    } else if (item.action === "product") {
+                        const res = await fetch("/api/product", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    } else if (item.action === "deleteProduct") {
+                        const res = await fetch("/api/product", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    } else if (item.action === "restock") {
+                        const res = await fetch("/api/restock", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    } else if (item.action === "loan") {
+                        const res = await fetch("/api/loan", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    } else if (item.action === "deleteLoan") {
+                        const res = await fetch("/api/loan", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    } else if (item.action === "deleteTransaction") {
+                        const res = await fetch("/api/transaction", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    } else if (item.action === "deleteStockEntry") {
+                        const res = await fetch("/api/restock", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(item.payload)
+                        });
+                        success = res.ok;
+                    }
+
+                    if (success) {
+                        syncedCount++;
+                    } else {
+                        remainingQueue.push(item);
+                    }
+                } catch (err) {
+                    remainingQueue.push(item);
+                }
+            }
+
+            this.saveQueue(remainingQueue);
+
+            if (syncedCount > 0) {
+                showToast(`¡Conexión restaurada! Se sincronizaron ${syncedCount} operaciones con la nube sin pérdida de datos.`, "success");
+            }
+        } finally {
+            this.isProcessingQueue = false;
+        }
+    },
+
+    async fetchUpdates() {
+        if (this.isSyncing || this.isProcessingQueue || !this.isCloudConnected || !this.isOnline) return;
+        const queue = this.getQueue();
+        if (queue.length > 0) {
+            await this.processQueue();
+            return;
+        }
+
+        this.isSyncing = true;
+        try {
+            const res = await fetch("/api/data", { method: "GET", cache: "no-store" });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.connected && json.data) {
+                    // Solo refrescar si no entraron nuevas operaciones locales durante la llamada
+                    if (this.getQueue().length === 0) {
                         appState = {
                             products: json.data.products || [],
                             transactions: json.data.transactions || [],
@@ -296,152 +465,11 @@ const CloudSync = {
                                 status: l.status || 'active',
                                 payments: Array.isArray(l.payments) ? l.payments : []
                             })),
-                            categories: json.data.categories || ["Ropa", "Calzado", "Perfumes", "Accesorios", "Otros"]
+                            categories: json.data.categories || appState.categories
                         };
                         saveState();
                         refreshActiveView();
                     }
-                }
-            } else {
-                this.isCloudConnected = false;
-            }
-            this.updateStatusBadge();
-        } catch (e) {
-            this.isCloudConnected = false;
-            this.updateStatusBadge();
-        }
-    },
-
-    async processQueue() {
-        let queue = this.getQueue();
-        if (queue.length === 0 || !this.isOnline || !this.isCloudConnected) return;
-
-        const totalToSync = queue.length;
-        let syncedCount = 0;
-        const failedItems = [];
-
-        for (const item of queue) {
-            try {
-                let success = false;
-                if (item.action === "sale") {
-                    const res = await fetch("/api/sale", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                } else if (item.action === "expense") {
-                    const res = await fetch("/api/expense", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                } else if (item.action === "product") {
-                    const res = await fetch("/api/product", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                } else if (item.action === "deleteProduct") {
-                    const res = await fetch("/api/product", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                } else if (item.action === "restock") {
-                    const res = await fetch("/api/restock", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                } else if (item.action === "loan") {
-                    const res = await fetch("/api/loan", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                } else if (item.action === "deleteLoan") {
-                    const res = await fetch("/api/loan", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                } else if (item.action === "deleteTransaction") {
-                    const res = await fetch("/api/transaction", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                } else if (item.action === "deleteStockEntry") {
-                    const res = await fetch("/api/restock", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(item.payload)
-                    });
-                    success = res.ok;
-                }
-
-                if (success) {
-                    syncedCount++;
-                } else {
-                    failedItems.push(item);
-                }
-            } catch (err) {
-                failedItems.push(item);
-            }
-        }
-
-        this.saveQueue(failedItems);
-
-        if (syncedCount > 0) {
-            showToast(`¡Conexión restaurada! Se sincronizaron ${syncedCount} operaciones con la nube sin pérdida de datos.`, "success");
-            await this.fetchUpdates();
-        }
-    },
-
-    async fetchUpdates() {
-        if (this.isSyncing || !this.isCloudConnected || !this.isOnline) return;
-        const queue = this.getQueue();
-        if (queue.length > 0) {
-            await this.processQueue();
-            return;
-        }
-
-        this.isSyncing = true;
-        try {
-            const res = await fetch("/api/data", { method: "GET", cache: "no-store" });
-            if (res.ok) {
-                const json = await res.json();
-                if (json.connected && json.data) {
-                    appState = {
-                        products: json.data.products || [],
-                        transactions: json.data.transactions || [],
-                        stockEntries: json.data.stockEntries || [],
-                        loans: (json.data.loans || []).map(l => ({
-                            id: l.id,
-                            client: l.client || l.clientName || 'Cliente',
-                            amount: Number(l.amount) || 0,
-                            interest: Number(l.interest) || 0,
-                            total: Number(l.total) || Number(l.totalAmount) || 0,
-                            days: Number(l.days) || 1,
-                            frequency: l.frequency || 'diaria',
-                            paid: Number(l.paid) || 0,
-                            remainingAmount: l.remainingAmount !== undefined && !isNaN(Number(l.remainingAmount)) ? Number(l.remainingAmount) : Math.max(0, (Number(l.total) || 0) - (Number(l.paid) || 0)),
-                            date: l.date || l.loanDate || getLocalDateString(),
-                            status: l.status || 'active',
-                            payments: Array.isArray(l.payments) ? l.payments : []
-                        })),
-                        categories: json.data.categories || appState.categories
-                    };
-                    saveState();
-                    refreshActiveView();
                 }
             }
         } catch (e) {
@@ -454,7 +482,7 @@ const CloudSync = {
     startPolling() {
         if (this.pollInterval) clearInterval(this.pollInterval);
         this.pollInterval = setInterval(() => {
-            if (this.isOnline && this.isCloudConnected && !document.hidden) {
+            if (this.isOnline && this.isCloudConnected && !document.hidden && !this.isProcessingQueue) {
                 this.fetchUpdates();
             }
         }, 10000);
@@ -485,6 +513,14 @@ const CloudSync = {
                 body: JSON.stringify(txData)
             });
             if (!res.ok) throw new Error("Status " + res.status);
+            const json = await res.json();
+            if (json.updatedProduct) {
+                const p = appState.products.find(prod => prod.id === json.updatedProduct.id);
+                if (p) {
+                    p.stock = Number(json.updatedProduct.stock);
+                    saveState();
+                }
+            }
         } catch (e) {
             console.warn("Fallo de red, guardando venta en cola offline:", e);
             this.addToQueue("sale", txData);
@@ -556,6 +592,16 @@ const CloudSync = {
                 body: JSON.stringify(payload)
             });
             if (!res.ok) throw new Error("Status " + res.status);
+            const json = await res.json();
+            if (json.updatedProduct) {
+                const p = appState.products.find(prod => prod.id === json.updatedProduct.id);
+                if (p) {
+                    p.stock = Number(json.updatedProduct.stock);
+                    p.costPrice = Number(json.updatedProduct.costPrice);
+                    p.sellingPrice = Number(json.updatedProduct.sellingPrice);
+                    saveState();
+                }
+            }
         } catch (e) {
             this.addToQueue("restock", payload);
         }
@@ -719,12 +765,10 @@ function loadState() {
             });
         } catch (e) {
             console.error("Error cargando base de datos guardada, inicializando vacía.", e);
-            loadDemoData(false);
+            appState = { products: [], transactions: [], loans: [], stockEntries: [], categories: ["Ropa", "Calzado", "Perfumes", "Accesorios", "Otros"] };
         }
-    } else if (localStorage.getItem("silvio_db_cleared") !== "true") {
-        // Cargar por primera vez con datos de demostración si no se ha vaciado
-        loadDemoData(false);
     } else {
+        // Inicializar estructura limpia para que Neon Postgres sincronice los datos reales
         appState = { products: [], transactions: [], loans: [], stockEntries: [], categories: ["Ropa", "Calzado", "Perfumes", "Accesorios", "Otros"] };
     }
 }
